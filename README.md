@@ -1,3 +1,10 @@
 # WhiteNoise Engine
 
-Python ile sentetik ama doðal hisli white/pink/brown noise ve meditasyon müziði üretim motoru.
+Python ile sentetik ama doï¿½al hisli white/pink/brown noise ve meditasyon mï¿½ziï¿½i ï¿½retim motoru.
+
+
+kullanÄ±m: 
+
+```
+streamlit run ui_app/ui_streamlit.py
+```
