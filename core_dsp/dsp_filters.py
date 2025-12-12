@@ -1,147 +1,141 @@
+import math
+from typing import Tuple
+
 import numpy as np
 
+FloatArray = np.ndarray
+_FT = np.float32
+_DENORM_GUARD = _FT(1e-20)
 
-def lpf_one_pole(x: np.ndarray, cutoff_hz: float, sample_rate: float) -> np.ndarray:
-    """Tek kutuplu alçak geçiren filtre uygular.
+
+def _to_float32(signal: FloatArray) -> FloatArray:
+    """Girişi float32 kopyasına dönüştürür."""
+    if signal.dtype != _FT:
+        return signal.astype(_FT, copy=False)
+    return signal
+
+
+def _safe_cutoff(cutoff_hz: float, sample_rate: int) -> float:
+    """Kesim frekansını Nyquist sınırında güvenli aralığa sıkıştırır."""
+    nyquist = sample_rate * 0.5
+    return float(np.clip(cutoff_hz, 1.0, nyquist * 0.95))
+
+
+def dc_block(signal: FloatArray, pole: float = 0.995) -> FloatArray:
+    """
+    DC bileşenini bastıran birinci dereceden yüksek geçiren filtre uygular.
 
     Parametreler:
-        x: Giriş sinyali (1B numpy dizisi).
-        cutoff_hz: Kesim frekansı (Hz).
-        sample_rate: Örnekleme hızı (Hz).
+        signal: Mono giriş sinyali (float32).
+        pole: Kutup katsayısı; 1.0'a yaklaştıkça daha düşük kesim sağlar.
 
-    Döndürür:
-        Filtrelenmiş sinyal (numpy dizisi).
+    Dönüş:
+        DC'si bastırılmış float32 sinyal.
     """
-    x = np.asarray(x, dtype=np.float64)
-    if x.ndim != 1:
-        raise ValueError("x 1 boyutlu olmalıdır")
-    if cutoff_hz <= 0 or sample_rate <= 0:
-        raise ValueError("cutoff_hz ve sample_rate pozitif olmalıdır")
-
-    alpha = np.exp(-2.0 * np.pi * cutoff_hz / sample_rate)
+    x = _to_float32(signal)
     y = np.empty_like(x)
-    y[0] = (1 - alpha) * x[0]
-    for n in range(1, x.size):
-        y[n] = (1 - alpha) * x[n] + alpha * y[n - 1]
+    pole_f = _FT(pole)
+    x_prev = _FT(0.0)
+    y_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        y_curr = sample - x_prev + pole_f * y_prev + _DENORM_GUARD
+        y[i] = y_curr
+        x_prev = sample
+        y_prev = y_curr
     return y
 
 
-def hpf_one_pole(x: np.ndarray, cutoff_hz: float, sample_rate: float) -> np.ndarray:
-    """Tek kutuplu yüksek geçiren filtre uygular.
+def one_pole_lowpass(
+    signal: FloatArray, cutoff_hz: float, sample_rate: int
+) -> FloatArray:
+    """
+    Birinci dereceden düşük geçiren filtre uygular.
 
     Parametreler:
-        x: Giriş sinyali (1B numpy dizisi).
+        signal: Mono giriş sinyali (float32).
         cutoff_hz: Kesim frekansı (Hz).
         sample_rate: Örnekleme hızı (Hz).
 
-    Döndürür:
-        Filtrelenmiş sinyal (numpy dizisi).
+    Dönüş:
+        Low-pass uygulanmış float32 sinyal.
     """
-    x = np.asarray(x, dtype=np.float64)
-    if x.ndim != 1:
-        raise ValueError("x 1 boyutlu olmalıdır")
-    if cutoff_hz <= 0 or sample_rate <= 0:
-        raise ValueError("cutoff_hz ve sample_rate pozitif olmalıdır")
-
-    alpha = np.exp(-2.0 * np.pi * cutoff_hz / sample_rate)
+    x = _to_float32(signal)
     y = np.empty_like(x)
-    y[0] = 0.0
-    for n in range(1, x.size):
-        y[n] = alpha * (y[n - 1] + x[n] - x[n - 1])
+    cutoff = _safe_cutoff(cutoff_hz, sample_rate)
+    alpha = _FT(math.exp(-2.0 * math.pi * cutoff / sample_rate))
+    b0 = _FT(1.0) - alpha
+    y_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        y_curr = b0 * sample + alpha * y_prev + _DENORM_GUARD
+        y[i] = y_curr
+        y_prev = y_curr
     return y
 
 
-def bandpass_simple(x: np.ndarray, low_cut_hz: float, high_cut_hz: float, sample_rate: float) -> np.ndarray:
-    """Basit bant geçiren filtre (HPF + LPF) uygular.
+def one_pole_highpass(
+    signal: FloatArray, cutoff_hz: float, sample_rate: int
+) -> FloatArray:
+    """
+    Birinci dereceden yüksek geçiren filtre uygular.
 
     Parametreler:
-        x: Giriş sinyali (1B numpy dizisi).
-        low_cut_hz: Alt kesim (Hz) için yüksek geçiren filtre.
-        high_cut_hz: Üst kesim (Hz) için alçak geçiren filtre.
+        signal: Mono giriş sinyali (float32).
+        cutoff_hz: Kesim frekansı (Hz).
         sample_rate: Örnekleme hızı (Hz).
 
-    Döndürür:
-        Filtrelenmiş sinyal (numpy dizisi).
+    Dönüş:
+        High-pass uygulanmış float32 sinyal.
     """
-    if low_cut_hz >= high_cut_hz:
-        raise ValueError("low_cut_hz high_cut_hz değerinden küçük olmalıdır")
-    high_passed = hpf_one_pole(x, low_cut_hz, sample_rate)
-    return lpf_one_pole(high_passed, high_cut_hz, sample_rate)
+    x = _to_float32(signal)
+    y = np.empty_like(x)
+    cutoff = _safe_cutoff(cutoff_hz, sample_rate)
+    alpha = _FT(math.exp(-2.0 * math.pi * cutoff / sample_rate))
+    x_prev = _FT(0.0)
+    y_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        y_curr = alpha * (y_prev + sample - x_prev) + _DENORM_GUARD
+        y[i] = y_curr
+        y_prev = y_curr
+        x_prev = sample
+    return y
 
 
-def eq_3band(
-    x: np.ndarray,
-    low_gain: float,
-    mid_gain: float,
-    high_gain: float,
-    low_cut_hz: float,
-    high_cut_hz: float,
-    sample_rate: float,
-) -> np.ndarray:
-    """3 bantlı basit EQ uygular (low/mid/high kazanç).
+def tilt_filter(
+    signal: FloatArray, tilt_db: float, sample_rate: int
+) -> FloatArray:
+    """
+    Spektral eğimi lineer olarak eğen tek kutuplu tilt filtresi uygular.
+
+    Pozitif değerler üst frekansları yükseltirken düşük frekansları bastırır.
 
     Parametreler:
-        x: Giriş sinyali (1B numpy dizisi).
-        low_gain: Alçak frekans kazancı (linear).
-        mid_gain: Orta frekans kazancı (linear).
-        high_gain: Yüksek frekans kazancı (linear).
-        low_cut_hz: Low geçişi ayırmak için kesim (Hz).
-        high_cut_hz: High geçişi ayırmak için kesim (Hz).
+        signal: Mono giriş sinyali (float32).
+        tilt_db: Her decade başına dB eğim.
         sample_rate: Örnekleme hızı (Hz).
 
-    Döndürür:
-        EQ uygulanmış sinyal (numpy dizisi).
+    Dönüş:
+        Spektral eğimli float32 sinyal.
     """
-    if not (0 < low_cut_hz < high_cut_hz < sample_rate * 0.5):
-        raise ValueError("Kesim frekansları 0 < low < high < Nyquist olmalıdır")
-
-    low = lpf_one_pole(x, low_cut_hz, sample_rate)
-    high = hpf_one_pole(x, high_cut_hz, sample_rate)
-    mid = x - low - high
-
-    return low * low_gain + mid * mid_gain + high * high_gain
-
-
-def normalize(x: np.ndarray, target_peak: float = 1.0, eps: float = 1e-12) -> np.ndarray:
-    """Sinyali verilen tepe değere ölçekler.
-
-    Parametreler:
-        x: Giriş sinyali (1B numpy dizisi).
-        target_peak: İstenen tepe değeri (varsayılan 1.0).
-        eps: Sıfıra bölünmeyi önlemek için küçük değer.
-
-    Döndürür:
-        Ölçeklenmiş sinyal (numpy dizisi).
-    """
-    x = np.asarray(x, dtype=np.float64)
-    peak = np.max(np.abs(x))
-    if peak < eps:
-        return np.zeros_like(x)
-    return x * (target_peak / peak)
-
-
-if __name__ == "__main__":
-    # Basit testler
-    sr = 48000
-    t = np.linspace(0, 1.0, sr, endpoint=False)
-    x = np.sin(2 * np.pi * 200 * t) + 0.5 * np.sin(2 * np.pi * 4000 * t)
-
-    lpf_out = lpf_one_pole(x, 500, sr)
-    hpf_out = hpf_one_pole(x, 1000, sr)
-    bp_out = bandpass_simple(x, 300, 2000, sr)
-    eq_out = eq_3band(
-        x,
-        low_gain=1.2,
-        mid_gain=0.8,
-        high_gain=1.5,
-        low_cut_hz=300,
-        high_cut_hz=3000,
-        sample_rate=sr,
-    )
-    norm_out = normalize(eq_out)
-
-    print("LPF ortalama", float(np.mean(lpf_out)))
-    print("HPF ortalama", float(np.mean(hpf_out)))
-    print("Bandpass max", float(np.max(np.abs(bp_out))))
-    print("EQ max", float(np.max(np.abs(eq_out))))
-    print("Normalize hedef", float(np.max(np.abs(norm_out))))
+    x = _to_float32(signal)
+    y = np.empty_like(x)
+    # Tilt katsayısı yüksek geçiren kısmın ağırlığını belirler.
+    hp_gain = _FT(10 ** (tilt_db / 20.0))
+    lp_gain = _FT(1.0)
+    # Orta bandı referanslamak için toplam kazancı normalize et.
+    norm = _FT(1.0 / (hp_gain + lp_gain))
+    hp_gain *= norm
+    lp_gain *= norm
+    # 200 Hz merkezli hafif geçiş için sabit kesim seçimi.
+    cutoff = _safe_cutoff(200.0, sample_rate)
+    alpha = _FT(math.exp(-2.0 * math.pi * cutoff / sample_rate))
+    lp_prev = _FT(0.0)
+    hp_prev = _FT(0.0)
+    x_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        lp_curr = (_FT(1.0) - alpha) * sample + alpha * lp_prev + _DENORM_GUARD
+        hp_curr = alpha * (hp_prev + sample - x_prev) + _DENORM_GUARD
+        y[i] = lp_gain * lp_curr + hp_gain * hp_curr
+        lp_prev = lp_curr
+        hp_prev = hp_curr
+        x_prev = sample
+    return y

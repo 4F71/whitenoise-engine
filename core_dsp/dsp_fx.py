@@ -1,165 +1,185 @@
-"""Lightweight DSP effects for simple audio shaping.
-
-This module includes:
-- Soft saturation using a hyperbolic tangent curve
-- Warmth (tilt EQ plus saturation)
-- Simple fake reverb (multi-tap delay with a low-pass tail)
-- Stereo widening via mid/side processing
-- Gain normalization
-"""
-
-from __future__ import annotations
-
 import math
-from typing import Iterable, Optional
+from typing import Tuple
 
 import numpy as np
 
-
-def _as_2d(signal: np.ndarray) -> np.ndarray:
-    """Ensure signal has shape (n_samples, n_channels)."""
-    arr = np.asarray(signal, dtype=np.float64)
-    if arr.ndim == 1:
-        return arr[:, None]
-    if arr.ndim != 2:
-        raise ValueError("Signal must be 1D (mono) or 2D (n_samples, n_channels).")
-    return arr
+FloatArray = np.ndarray
+_FT = np.float32
+_DENORM_GUARD = _FT(1e-20)
 
 
-def _restore_shape(original: np.ndarray, processed: np.ndarray) -> np.ndarray:
-    """Return processed array with the same dimensionality as original."""
-    if original.ndim == 1:
-        return processed[:, 0]
-    return processed
+def _to_float32(signal: FloatArray) -> FloatArray:
+    """Girişi float32 kopyasına dönüştürür."""
+    if signal.dtype != _FT:
+        return signal.astype(_FT, copy=False)
+    return signal
 
 
-def _one_pole_lowpass(
-    signal: np.ndarray,
-    sample_rate: float,
-    cutoff_hz: float,
-) -> np.ndarray:
-    """One-pole low-pass filter; simple and stable for tonal shaping."""
-    if cutoff_hz <= 0:
-        raise ValueError("cutoff_hz must be positive.")
-    arr = _as_2d(signal)
-    alpha = math.exp(-2.0 * math.pi * cutoff_hz / sample_rate)
-    one_minus_alpha = 1.0 - alpha
-
-    y = np.empty_like(arr)
-    state = arr[0].copy()
-    y[0] = state
-    for i in range(1, len(arr)):
-        state = alpha * state + one_minus_alpha * arr[i]
-        y[i] = state
-    return _restore_shape(signal, y)
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    """Değeri verilen aralıkta sınırlar."""
+    return float(np.clip(value, min_value, max_value))
 
 
-def soft_saturation(
-    signal: np.ndarray,
-    drive: float = 1.25,
-    makeup_gain: bool = True,
-) -> np.ndarray:
-    """Soft tanh saturation with optional makeup gain."""
-    if drive <= 0:
-        raise ValueError("drive must be positive.")
-    saturated = np.tanh(np.asarray(signal, dtype=np.float64) * drive)
-    if makeup_gain:
-        gain = 1.0 / np.tanh(drive)
-        saturated *= gain
-    return saturated
+def _rms(signal: FloatArray) -> float:
+    """RMS değerini float olarak döndürür."""
+    x = _to_float32(signal)
+    return float(np.sqrt(np.mean(x * x, dtype=_FT)))
 
 
-def tilt_eq(
-    signal: np.ndarray,
-    sample_rate: float,
-    tilt_db: float = 3.0,
-    pivot_hz: float = 1200.0,
-) -> np.ndarray:
-    """Tilt EQ around a pivot frequency; positive tilt warms (more lows)."""
-    if sample_rate <= 0:
-        raise ValueError("sample_rate must be positive.")
-    if pivot_hz <= 0:
-        raise ValueError("pivot_hz must be positive.")
+def soft_saturation(signal: FloatArray, drive: float) -> FloatArray:
+    """
+    Arctan tabanlı yumuşak saturasyon uygular.
 
-    low = _one_pole_lowpass(signal, sample_rate, pivot_hz)
-    high = np.asarray(signal, dtype=np.float64) - low
+    Parametreler:
+        signal: Mono giriş sinyali (float32).
+        drive: Sürüş miktarı (0 ve üzeri).
 
-    low_gain = 10 ** (tilt_db / 20.0)
-    high_gain = 1.0 / low_gain
-    shaped = low * low_gain + high * high_gain
-
-    max_gain = max(low_gain, high_gain)
-    shaped /= max_gain
-    return shaped
+    Dönüş:
+        Saturasyon uygulanmış float32 sinyal.
+    """
+    x = _to_float32(signal)
+    drv = _clamp(drive, 0.0, 10.0)
+    gain = _FT(1.0 + drv * 2.0)
+    out = (_FT(2.0 / math.pi)) * np.arctan(gain * x + _DENORM_GUARD, dtype=_FT)
+    comp = _FT(1.0 / (1.0 + 0.5 * drv))
+    return (out * comp).astype(_FT, copy=False)
 
 
-def warmth(
-    signal: np.ndarray,
-    sample_rate: float,
-    tilt_db: float = 3.0,
-    saturation_drive: float = 1.1,
-) -> np.ndarray:
-    """Combine tilt EQ with gentle saturation for a warmer tone."""
-    tilted = tilt_eq(signal, sample_rate=sample_rate, tilt_db=tilt_db)
-    return soft_saturation(tilted, drive=saturation_drive)
+def warmth(signal: FloatArray, amount: float) -> FloatArray:
+    """
+    Hafif yumuşatma ve düşük seviye harmonik ekler.
+
+    Parametreler:
+        signal: Mono giriş sinyali (float32).
+        amount: 0-1 arası ısınma miktarı.
+
+    Dönüş:
+        Isıtılmış float32 sinyal.
+    """
+    x = _to_float32(signal)
+    amt = _clamp(amount, 0.0, 1.0)
+    alpha = _FT(0.15 + 0.7 * amt)  # düşük geçiren yumuşatma katsayısı
+    y = np.empty_like(x)
+    lp_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        lp = (1.0 - alpha) * sample + alpha * lp_prev + _DENORM_GUARD
+        lp_prev = lp
+        harm = sample * sample * sample
+        warmed = (1.0 - amt) * sample + amt * (_FT(0.75) * sample + _FT(0.2) * lp + _FT(0.05) * harm)
+        y[i] = warmed
+    return y.astype(_FT, copy=False)
 
 
-def fake_reverb(
-    signal: np.ndarray,
-    sample_rate: float,
-    delays_ms: Optional[Iterable[float]] = None,
-    decay: float = 0.55,
-    lpf_hz: float = 6000.0,
-    wet: float = 0.3,
-) -> np.ndarray:
-    """Simple faux reverb using multi-tap delays and a low-pass tail."""
-    if wet < 0 or wet > 1:
-        raise ValueError("wet must be between 0 and 1.")
-    if decay <= 0:
-        raise ValueError("decay must be positive.")
-    delays = list(delays_ms) if delays_ms is not None else [25.0, 55.0, 85.0, 120.0]
-    if not delays:
-        raise ValueError("delays_ms must contain at least one value.")
+def simple_reverb(signal: FloatArray, sample_rate: int, mix: float) -> FloatArray:
+    """
+    Hafif geri beslemeli gecikmeye dayalı basit reverb uygular.
 
-    dry = _as_2d(signal)
-    n_samples, n_channels = dry.shape
-    delay_samples = [int(sample_rate * d / 1000.0) for d in delays]
-    max_delay = max(delay_samples)
-    out_len = n_samples + max_delay
+    Parametreler:
+        signal: Mono giriş sinyali (float32).
+        sample_rate: Örnekleme hızı (Hz).
+        mix: 0-1 arası ıslak/kuru karışım.
 
-    wet_buf = np.zeros((out_len, n_channels), dtype=np.float64)
-    for tap, offset in enumerate(delay_samples):
-        attenuation = decay ** tap
-        wet_buf[offset: offset + n_samples] += dry * attenuation
-
-    wet_buf = _as_2d(_one_pole_lowpass(wet_buf, sample_rate, lpf_hz))
-
-    dry_padded = np.zeros_like(wet_buf)
-    dry_padded[:n_samples] = dry
-
-    mixed = dry_padded * (1.0 - wet) + wet_buf * wet
-    return _restore_shape(signal, mixed)
-
-
-def stereo_widen(signal: np.ndarray, width: float = 1.2) -> np.ndarray:
-    """Mid/side stereo widening; width > 1 spreads, < 1 narrows."""
-    arr = _as_2d(signal)
-    if arr.shape[1] != 2:
-        raise ValueError("stereo_widen expects a stereo (n_samples, 2) signal.")
-    mid = 0.5 * (arr[:, 0] + arr[:, 1])
-    side = 0.5 * (arr[:, 0] - arr[:, 1]) * width
-    left = mid + side
-    right = mid - side
-    widened = np.stack([left, right], axis=1)
-    return _restore_shape(signal, widened)
+    Dönüş:
+        Reverb uygulanmış float32 sinyal.
+    """
+    x = _to_float32(signal)
+    wet = _clamp(mix, 0.0, 1.0)
+    dry = _FT(1.0 - wet)
+    delay_main = max(1, int(0.055 * sample_rate))
+    delay_tap = max(1, int(0.019 * sample_rate))
+    fb = _FT(0.45)
+    damp = _FT(0.25)
+    buf_len = delay_main + 1
+    buf = np.zeros(buf_len, dtype=_FT)
+    y = np.empty_like(x)
+    idx = 0
+    lp_prev = _FT(0.0)
+    for i, sample in enumerate(x):
+        delayed = buf[idx]
+        # basit damping
+        lp = (1.0 - damp) * delayed + damp * lp_prev + _DENORM_GUARD
+        lp_prev = lp
+        # erken yansıma tap'i
+        tap_idx = (idx - delay_tap) % buf_len
+        tap = buf[tap_idx]
+        new_val = sample + fb * lp
+        buf[idx] = new_val
+        idx = (idx + 1) % buf_len
+        wet_sample = _FT(0.6) * lp + _FT(0.4) * tap
+        y[i] = dry * sample + wet * wet_sample
+    return y.astype(_FT, copy=False)
 
 
-def normalize_gain(signal: np.ndarray, target_peak: float = 0.99) -> np.ndarray:
-    """Normalize signal to a target peak level."""
-    if target_peak <= 0:
-        raise ValueError("target_peak must be positive.")
-    arr = np.asarray(signal, dtype=np.float64)
-    peak = np.max(np.abs(arr))
-    if peak == 0:
-        return arr
-    return arr * (target_peak / peak)
+def stereo_widen(signal: FloatArray, amount: float) -> FloatArray:
+    """
+    Dekorele küçük gecikmelerle stereo genişletme uygular.
+
+    Parametreler:
+        signal: Mono giriş sinyali (float32).
+        amount: 0-1 arası genişlik miktarı.
+
+    Dönüş:
+        İki kanallı (N, 2) float32 sinyal.
+    """
+    x = _to_float32(signal)
+    amt = _clamp(amount, 0.0, 1.0)
+    g = _FT(0.6 * amt)
+    d1 = 11
+    d2 = 7
+    n = x.shape[0]
+    l = np.empty((n,), dtype=_FT)
+    r = np.empty((n,), dtype=_FT)
+    buf1 = np.zeros(d1, dtype=_FT)
+    buf2 = np.zeros(d2, dtype=_FT)
+    i1 = 0
+    i2 = 0
+    for i, sample in enumerate(x):
+        ap1 = -g * sample + buf1[i1] + g * buf1[i1 - 1] if d1 > 1 else sample
+        ap2 = -g * sample + buf2[i2] + g * buf2[i2 - 1] if d2 > 1 else sample
+        buf1[i1] = sample + g * ap1 + _DENORM_GUARD
+        buf2[i2] = sample + g * ap2 + _DENORM_GUARD
+        i1 = (i1 + 1) % d1
+        i2 = (i2 + 1) % d2
+        side = _FT(0.5) * (ap1 - ap2)
+        l[i] = sample + side
+        r[i] = sample - side
+    return np.stack((l, r), axis=-1)
+
+
+def normalize_gain(signal: FloatArray, target_rms: float = 0.1) -> FloatArray:
+    """
+    Sinyali hedef RMS değerine ölçekler.
+
+    Parametreler:
+        signal: Mono veya stereo sinyal (float32).
+        target_rms: İstenen RMS değeri.
+
+    Dönüş:
+        Ölçeklenmiş float32 sinyal.
+    """
+    x = _to_float32(signal)
+    rms_val = _rms(x)
+    if rms_val <= 0.0:
+        return x.copy()
+    gain = _FT(target_rms / rms_val)
+    return (x * gain).astype(_FT, copy=False)
+
+
+if __name__ == "__main__":
+    fs = 48000
+    t = np.arange(fs, dtype=_FT) / _FT(fs)
+    test = _FT(0.3) * np.sin(2.0 * math.pi * 440.0 * t, dtype=_FT)
+
+    sat = soft_saturation(test, drive=1.5)
+    warm = warmth(test, amount=0.7)
+    rev = simple_reverb(test, sample_rate=fs, mix=0.25)
+    wide = stereo_widen(test, amount=0.6)
+    norm = normalize_gain(test, target_rms=0.1)
+
+    print("Örnek RMS değerleri:")
+    print(f"Giriş: {_rms(test):.6f}")
+    print(f"Saturasyon: {_rms(sat):.6f}")
+    print(f"Warmth: {_rms(warm):.6f}")
+    print(f"Reverb: {_rms(rev):.6f}")
+    print(f"Widen L: {_rms(wide[:,0]):.6f} R: {_rms(wide[:,1]):.6f}")
+    print(f"Normalize: {_rms(norm):.6f}")
