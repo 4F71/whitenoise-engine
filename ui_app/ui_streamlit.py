@@ -1,232 +1,158 @@
-from __future__ import annotations
+"""
+ui_app/ui_streamlit.py
 
-import io
-import json
-from typing import Any, Dict, Iterable, Mapping
-
-import numpy as np
-import soundfile as sf
-import streamlit as st
+UltraGen / WhiteNoise Engine - Streamlit Web Arayüzü
+====================================================
+Bu modül, UltraGen ses motorunu tarayıcı tabanlı bir arayüz üzerinden
+kullanmak için geliştirilmiştir. Hızlı prototipleme ve görsel test için idealdir.
+"""
 
 import sys
 import os
+import io
+import time
+import numpy as np
+import streamlit as st
+from scipy.io import wavfile
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if ROOT not in sys.path:
-    sys.path.append(ROOT)
+# Proje kök dizinini path'e ekle
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from graph_engine.graph_core import Graph
-from graph_engine.graph_loader import NODE_CLASS_MAP
-from graph_engine.graph_nodes import BaseNode
-from preset_system.preset_library import PRESETS, PRESET_MAP
-from preset_system.preset_schema import PresetConfig
-
-
-
-# --------------------------------------------------------------------------- #
-# Yardımcılar
-# --------------------------------------------------------------------------- #
-
-def _build_graph_from_patch(
-    patch: Mapping[str, Any],
-    node_classes: Mapping[str, type[BaseNode]] | None = None,
-) -> Graph:
-    """Patch sözlüğünden Graph nesnesi oluşturur."""
-    node_classes = node_classes or NODE_CLASS_MAP
-    sample_rate = int(patch.get("sample_rate", 44_100))
-    graph = Graph(sample_rate=sample_rate)
-
-    global_params = patch.get("global_params") or {}
-    if global_params:
-        graph.set_global_params(global_params)
-
-    nodes_cfg: Iterable[Mapping[str, Any]] = patch.get("nodes") or []
-    if not nodes_cfg:
-        raise ValueError("Patch içinde hiç node yok.")
-
-    for cfg in nodes_cfg:
-        name = cfg.get("name")
-        type_name = cfg.get("type")
-        if not name or not type_name:
-            raise ValueError(f"Node tanımı eksik: {cfg}")
-        cls = node_classes.get(str(type_name).lower())
-        if cls is None:
-            raise ValueError(f"Bilinmeyen node tipi: {type_name}")
-        params = dict(cfg.get("params") or {})
-        graph.add_node(name, cls(name=name, sample_rate=sample_rate), params=params)
-
-    for edge in patch.get("edges") or []:
-        src = edge.get("source")
-        tgt = edge.get("target")
-        if not src or not tgt:
-            raise ValueError(f"Geçersiz edge: {edge}")
-        graph.add_edge(src, tgt, target_input=edge.get("target_input", "input"))
-
-    return graph
+try:
+    from core_dsp import dsp_render
+    from preset_system import preset_library, preset_autogen
+    from ui_app.preset_to_dsp_adapter import adapt_preset_to_layer_generators
+except ImportError as e:
+    st.error(f"Kritik Hata: Gerekli modüller yüklenemedi.\nDetay: {e}")
+    st.stop()
 
 
-def _render_preset_audio(
-    preset: PresetConfig,
-    duration: float,
-    sample_rate: int,
-    global_overrides: Mapping[str, Any] | None = None,
-    node_overrides: Mapping[str, Mapping[str, Any]] | None = None,
-) -> tuple[np.ndarray, int]:
-    """Patch'i Graph'a çevirip ses üretir."""
-    graph = _build_graph_from_patch(preset.graph_patch)
-    if global_overrides:
-        graph.set_global_params({**graph.global_params, **dict(global_overrides)})
+def convert_to_wav_bytes(audio_data: np.ndarray, sample_rate: int) -> bytes:
+    """NumPy dizisini bellekte WAV formatına çevirir."""
+    audio_data = np.clip(audio_data, -1.0, 1.0)
+    scaled = (audio_data * 32767).astype(np.int16)
+    virtual_file = io.BytesIO()
+    wavfile.write(virtual_file, sample_rate, scaled)
+    return virtual_file.getvalue()
 
-    num_frames = max(1, int(duration * sample_rate))
-    audio = graph.run(
-        {
-            "duration": duration,
-            "num_frames": num_frames,
-            "sample_rate": sample_rate,
-            "node_params": node_overrides or {},
-        }
+
+def main():
+    st.set_page_config(
+        page_title="UltraGen V1",
+        page_icon="🌊",
+        layout="centered"
     )
-    return audio, sample_rate
 
+    st.title("🌊 UltraGen / WhiteNoise Engine")
+    st.markdown("Akademik DSP tabanlı, deterministik gürültü ve atmosfer üretici.")
+    st.markdown("---")
 
-def _to_wav_buffer(audio: np.ndarray, sample_rate: int) -> io.BytesIO:
-    """Stereo numpy dizisini WAV'e çevirip hafızada döndürür."""
-    if audio.ndim != 2:
-        raise ValueError("Ses çıktısı 2 boyutlu olmalı.")
-    if audio.shape[0] == 2:
-        stereo = audio.T
-    elif audio.shape[1] == 2:
-        stereo = audio
-    else:
-        raise ValueError("Ses çıktısı stereo değil.")
+    # 1. Kenar Çubuğu: Ayarlar
+    st.sidebar.header("Yapılandırma")
 
-    buf = io.BytesIO()
-    sf.write(buf, stereo.astype(np.float32), sample_rate, format="WAV")
-    buf.seek(0)
-    return buf
+    duration = st.sidebar.number_input(
+        "Süre (Saniye)",
+        min_value=1.0,
+        max_value=300.0,
+        value=10.0,
+        step=1.0
+    )
 
+    sr = st.sidebar.selectbox(
+        "Örnekleme Hızı (Hz)",
+        options=[44100, 48000],
+        index=0
+    )
 
-def _parse_json_field(label: str, raw_value: str) -> tuple[dict[str, Any], bool]:
-    """JSON alanını parse eder, hata durumunda Streamlit uyarısı döner."""
-    text = raw_value.strip()
-    if not text:
-        return {}, True
-    try:
-        parsed = json.loads(text)
-        if not isinstance(parsed, dict):
-            raise ValueError("Sadece sözlük bekleniyor.")
-        return parsed, True
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"{label} JSON parse hatası: {exc}")
-        return {}, False
+    use_variant = st.sidebar.checkbox("Otomatik Varyasyon Üret", value=False)
+    variant_intensity = 0.15
+    if use_variant:
+        variant_intensity = st.sidebar.slider("Varyasyon Şiddeti", 0.0, 0.5, 0.15)
 
+    # 2. Preset Seçimi
+    st.subheader("1. Preset Seçimi")
 
-# --------------------------------------------------------------------------- #
-# Streamlit UI
-# --------------------------------------------------------------------------- #
+    preset_ids = preset_library.list_all_presets()
+    all_presets = [preset_library.get_preset(pid) for pid in preset_ids]
+    preset_names = [p.name for p in all_presets]
 
+    selected_index = st.selectbox(
+        "Bir atmosfer seçin:",
+        range(len(all_presets)),
+        format_func=lambda x: preset_names[x]
+    )
+    selected_preset = all_presets[selected_index]
+    selected_preset_id = preset_ids[selected_index]
 
-def _preset_options() -> list[tuple[str, str]]:
-    return [(f"{p.name} · {p.id}", p.id) for p in sorted(PRESETS, key=lambda p: p.name.lower())]
+    with st.expander("Preset Detayları", expanded=True):
+        st.markdown(f"**ID:** `{selected_preset_id}`")
+        st.markdown(f"**Açıklama:** {selected_preset.description}")
+        st.markdown(f"**Etiketler:** {', '.join(selected_preset.tags)}")
 
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Katman Sayısı", len(selected_preset.layers))
+        with col2:
+            rev_mix = float(selected_preset.fx_config.reverb_mix)
+            st.metric("Reverb", f"%{int(rev_mix * 100)}")
 
-def _unique_tags() -> list[str]:
-    tags: set[str] = set()
-    for p in PRESETS:
-        tags.update(p.tags)
-    return sorted(tags)
+    # 3. Render
+    st.markdown("---")
+    st.subheader("2. Ses Üretimi")
 
+    if st.button("RENDER BAŞLAT", type="primary", use_container_width=True):
+        status_text = st.empty()
+        progress_bar = st.progress(0)
 
-def main() -> None:
-    st.set_page_config(page_title="UltraGen Preset Panel", layout="wide")
-    st.title("UltraGen Preset Panel")
-    st.caption("Preset seçimi · param kontrolü · preview · full render")
-
-    # --- Sidebar: filtreler
-    with st.sidebar:
-        st.header("Preset Filtre")
-        tag_filter = st.multiselect("Etiket ile filtrele", _unique_tags())
-        search = st.text_input("İsim/ID ara", "").strip().lower()
-
-    presets = []
-    for label, pid in _preset_options():
-        preset = PRESET_MAP[pid]
-        if tag_filter and not any(t in preset.tags for t in tag_filter):
-            continue
-        if search and search not in preset.name.lower() and search not in preset.id.lower():
-            continue
-        presets.append((label, pid))
-
-    if not presets:
-        st.warning("Filtreye uyan preset bulunamadı.")
-        return
-
-    default_idx = 0
-    labels = [lbl for lbl, _ in presets]
-    ids = [pid for _, pid in presets]
-    selected_label = st.selectbox("Preset seç", labels, index=default_idx)
-    preset_id = ids[labels.index(selected_label)]
-    preset = PRESET_MAP[preset_id]
-
-    cols = st.columns([2, 1])
-    with cols[0]:
-        st.subheader(preset.name)
-        st.write(f"ID: `{preset.id}`")
-        st.write(f"Hedef kullanım: **{preset.target_use or 'belirtilmedi'}**")
-        st.write(f"Etiketler: {', '.join(preset.tags) if preset.tags else '—'}")
-        if preset.duration_hint:
-            st.write(f"Önerilen süre: {preset.duration_hint:.1f} sn")
-        st.json(preset.graph_patch, expanded=False)
-    with cols[1]:
-        st.info("Preview kısa süreli WAV, Full Render seçilen süre kadar üretir. Parametre değişiklikleri yalnızca oturumda geçerlidir.")
-
-    # --- Parametre formu
-    patch_sr = int(preset.graph_patch.get("sample_rate", 44_100))
-    duration_default = float(preset.duration_hint or 8.0)
-    duration_max = max(10.0, duration_default * 3)
-
-    with st.form("render_form"):
-        pcol1, pcol2, pcol3 = st.columns(3)
-        sample_rate = pcol1.selectbox("Sample rate", [22_050, 44_100, 48_000, 96_000], index=[22_050, 44_100, 48_000, 96_000].index(patch_sr) if patch_sr in [22_050, 44_100, 48_000, 96_000] else 1)
-        duration = pcol2.slider("Full render süresi (sn)", min_value=1.0, max_value=duration_max, value=duration_default, step=0.5)
-        preview_duration = pcol3.slider("Preview süresi (sn)", min_value=1.0, max_value=min(duration, 12.0), value=min(6.0, duration_default), step=0.5)
-        seed = pcol1.number_input("Seed", value=0, min_value=0, step=1)
-
-        st.markdown("**Global param override (JSON, opsiyonel)** — örn: `{ \"duration\": 5.5 }`")
-        global_raw = st.text_area("Global parametreler", placeholder="{}", height=100)
-
-        st.markdown("**Node override (JSON, opsiyonel)** — örn: `{ \"osc\": {\"frequency\": 330}, \"gain\": {\"gain_db\": -3} }`")
-        node_raw = st.text_area("Node parametreleri", placeholder="{\n  \"osc\": {\"frequency\": 330}\n}", height=140)
-
-        preview_btn = st.form_submit_button("Preview üret")
-        render_btn = st.form_submit_button("Full render üret")
-
-    global_overrides, ok_global = _parse_json_field("Global param", global_raw)
-    node_overrides, ok_node = _parse_json_field("Node param", node_raw)
-
-    if preview_btn or render_btn:
-        if not ok_global or not ok_node:
-            st.stop()
         try:
-            node_params = node_overrides
-            graph_globals = {**global_overrides, "seed": int(seed)}
+            render_config = selected_preset
 
-            target_duration = preview_duration if preview_btn else duration
-            with st.spinner("Ses üretiliyor..."):
-                audio, sr = _render_preset_audio(
-                    preset,
-                    duration=target_duration,
-                    sample_rate=int(sample_rate),
-                    global_overrides=graph_globals,
-                    node_overrides=node_params,
+            if use_variant:
+                status_text.text("Varyasyon hesaplanıyor...")
+                render_config = preset_autogen.generate_variant(
+                    selected_preset,
+                    intensity=variant_intensity,
+                    suffix="Streamlit"
                 )
-                wav_buf = _to_wav_buffer(audio, sr)
-            st.success("Hazır!")
-            st.audio(wav_buf, format="audio/wav")
-            fname = f"{preset.id}_{'preview' if preview_btn else 'full'}_{int(target_duration)}s.wav"
-            st.download_button("WAV indir", data=wav_buf, file_name=fname, mime="audio/wav")
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Render sırasında hata: {exc}")
+                time.sleep(0.5)
+
+            status_text.text(f"DSP Motoru Çalışıyor... ({duration} sn)")
+            progress_bar.progress(30)
+
+            start_time = time.time()
+
+            # === DEBUG FIX: Preset → Adapter → DSP ===
+            generators = adapt_preset_to_layer_generators(render_config)
+
+            audio_data = dsp_render.render_sound(
+                generators,
+                duration_sec=duration,
+                sample_rate=sr
+            )
+
+            elapsed = time.time() - start_time
+            progress_bar.progress(100)
+            status_text.success(f"Tamamlandı! ({elapsed:.2f}s)")
+
+            # 4. Sonuç
+            st.markdown("---")
+            st.subheader("3. Sonuç")
+
+            wav_bytes = convert_to_wav_bytes(audio_data, sr)
+            st.audio(wav_bytes, format="audio/wav")
+
+            file_name = f"ultragen_{selected_preset_id}_{int(time.time())}.wav"
+            st.download_button(
+                label="📥 WAV Olarak İndir",
+                data=wav_bytes,
+                file_name=file_name,
+                mime="audio/wav",
+                use_container_width=True
+            )
+
+        except Exception as e:
+            st.error(f"Render sırasında hata oluştu: {e}")
+            progress_bar.empty()
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ def generate_variant(
     """
     rng = random.Random(seed)
     variant = copy.deepcopy(base_preset)
-    variant.id = _generate_variant_id(base_preset.id, suffix)
+    #variant.id = _generate_variant_id(base_preset.id, suffix)
     variant.name = _generate_variant_name(base_preset.name, suffix)
     if "variant" not in variant.tags:
         variant.tags.append("variant")

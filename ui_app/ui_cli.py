@@ -1,124 +1,122 @@
-from __future__ import annotations
-
 import argparse
 import sys
-from pathlib import Path
-from typing import Any, Mapping
+import time
+import wave
+from typing import Optional
 
 import numpy as np
-import soundfile as sf
 
-from graph_engine.graph_core import Graph
-from graph_engine.graph_loader import NODE_CLASS_MAP
-from graph_engine.graph_nodes import BaseNode
-from preset_system.preset_library import PRESET_MAP
-from preset_system.preset_schema import PresetConfig
+from preset_system.preset_library import get_preset, list_all_presets
+from preset_system.preset_autogen import generate_variant
+from core_dsp.dsp_render import render_sound
 
 
-def _build_graph_from_patch(
-    patch: Mapping[str, Any],
-    node_classes: Mapping[str, type[BaseNode]] | None = None,
-) -> Graph:
-    """Patch sozlugunden Graph nesnesi kurar."""
-    node_classes = node_classes or NODE_CLASS_MAP
-    sample_rate = int(patch.get("sample_rate", 44_100))
-    graph = Graph(sample_rate=sample_rate)
-
-    global_params = patch.get("global_params") or {}
-    if global_params:
-        graph.set_global_params(global_params)
-
-    nodes_cfg = patch.get("nodes") or []
-    if not nodes_cfg:
-        raise ValueError("Patch icinde hic node yok.")
-
-    for cfg in nodes_cfg:
-        name = cfg.get("name")
-        type_name = cfg.get("type")
-        if not name or not type_name:
-            raise ValueError(f"Node tanimi eksik: {cfg}")
-        cls = node_classes.get(str(type_name).lower())
-        if cls is None:
-            raise ValueError(f"Bilinmeyen node tipi: {type_name}")
-        params = dict(cfg.get("params") or {})
-        graph.add_node(name, cls(name=name, sample_rate=sample_rate), params=params)
-
-    for edge in patch.get("edges") or []:
-        src = edge.get("source")
-        tgt = edge.get("target")
-        if not src or not tgt:
-            raise ValueError(f"Gecersiz edge: {edge}")
-        graph.add_edge(src, tgt, target_input=edge.get("target_input", "input"))
-
-    return graph
+_DEFAULT_SAMPLE_RATE = 44100
+_DEFAULT_DURATION_SEC = 60.0
+_DEFAULT_OUTPUT_FILE = "output.wav"
 
 
-def _resolve_duration(arg_duration: float | None, preset: PresetConfig) -> float:
-    """CLI'dan verilen veya preset icinden gelen sureyi sec."""
-    if arg_duration is not None:
-        return max(0.05, float(arg_duration))
-    if preset.duration_hint:
-        return float(preset.duration_hint)
-    default = (preset.graph_patch.get("global_params") or {}).get("duration")
-    return max(0.05, float(default or 8.0))
+def _write_wav(path: str, signal: np.ndarray, sample_rate: int) -> None:
+    """
+    Float32 mono sinyali 16-bit PCM WAV olarak yazar.
+    """
+    signal = np.clip(signal, -1.0, 1.0)
+    pcm16 = (signal * 32767.0).astype(np.int16)
+
+    with wave.open(path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm16.tobytes())
 
 
-def _default_output_path(preset_id: str, duration: float, variant: int) -> Path:
-    dur_tag = f"{duration:.2f}".rstrip("0").rstrip(".")
-    fname = f"{preset_id}_{dur_tag}s_v{variant}.wav"
-    return Path("renders") / fname
+def _cmd_list_presets() -> None:
+    """
+    Mevcut preset listesini yazdırır.
+    """
+    presets = list_presets()
+    if not presets:
+        print("Preset bulunamadı.")
+        return
+
+    print("\n--- Mevcut Presetler ---")
+    for preset in presets:
+        print(f"{preset.id} - {preset.name}")
 
 
-def render_preset_to_wav(preset: PresetConfig, duration: float, variant: int, output_path: Path) -> tuple[Path, int]:
-    """Preset'i calistirip stereo WAV olarak yazar."""
-    graph = _build_graph_from_patch(preset.graph_patch)
-    duration = float(duration)
-    sample_rate = graph.sample_rate
-    num_frames = max(1, int(duration * sample_rate))
-
-    # Rastgelelik ve global paramlari yay
-    graph.set_global_params({"duration": duration, "seed": int(variant)})
-    np.random.seed(int(variant))
-
-    audio = graph.run(
-        {
-            "duration": duration,
-            "num_frames": num_frames,
-            "sample_rate": sample_rate,
-        }
-    )
-    stereo = audio.T  # soundfile (num_frames, channels) bekler
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(output_path, stereo, sample_rate)
-    return output_path, sample_rate
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="UltraGen patch tabanli CLI renderer")
-    parser.add_argument("--preset", required=True, help="Preset ID (preset_system/preset_library icinden)")
-    parser.add_argument("--duration", type=float, help="Saniye cinsinden sure; verilmezse preset sure ipucu kullanilir")
-    parser.add_argument("--variant", type=int, default=0, help="Rastgelelik tohumu / varyant numarasi")
-    parser.add_argument("--output", type=str, help="Cikti WAV yolu; verilmezse renders/<id>_<sure>_v<variant>.wav")
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    preset = PRESET_MAP.get(args.preset)
+def _cmd_render(
+    preset_id: str,
+    output: str,
+    duration: float,
+    sample_rate: int,
+    use_variant: bool = False,
+    seed: Optional[int] = None,
+) -> None:
+    """
+    Seçilen preset’i render edip WAV dosyası üretir.
+    """
+    preset = get_preset(preset_id)
     if preset is None:
-        available = ", ".join(sorted(PRESET_MAP))
-        sys.exit(f"Bilinmeyen preset '{args.preset}'. Mevcut ID'ler: {available}")
+        raise ValueError(f"Preset bulunamadı: {preset_id}")
 
-    duration = _resolve_duration(args.duration, preset)
-    output_path = Path(args.output) if args.output else _default_output_path(preset.id, duration, args.variant)
+    config = preset
+    if use_variant:
+        print("-> Varyasyon üretiliyor...")
+        config = generate_variant(config, intensity=0.2, seed=seed)
+        print(f"-> Varyasyon Hazır: {config.name}")
+
+    print(f"\nRender Başlıyor... ({duration} saniye, {sample_rate} Hz)")
+    start = time.time()
+    signal = render_sound(
+        preset_params=config.to_dict(),
+        duration_sec=duration,
+        sample_rate=sample_rate,
+        seed=seed if seed is not None else config.seed,
+    )
+    elapsed = time.time() - start
+    print(f"Render Tamamlandı ({elapsed:.2f}s)")
+
+    _write_wav(output, signal, sample_rate)
+    print(f"\nDosya kaydedildi: {output}")
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    """
+    UltraGen CLI ana giriş noktası.
+    """
+    parser = argparse.ArgumentParser(
+        prog="ultragen",
+        description="UltraGen WhiteNoise Engine CLI",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    list_parser = subparsers.add_parser("list", help="Presetleri listeler")
+
+    render_parser = subparsers.add_parser("render", help="Preset render eder")
+    render_parser.add_argument("--preset", required=True, help="Preset ID")
+    render_parser.add_argument("--output", default=_DEFAULT_OUTPUT_FILE, help="Çıktı dosyası")
+    render_parser.add_argument("--duration", type=float, default=_DEFAULT_DURATION_SEC, help="Süre (sn)")
+    render_parser.add_argument("--sample-rate", type=int, default=_DEFAULT_SAMPLE_RATE, help="Sample rate (Hz)")
+    render_parser.add_argument("--variant", action="store_true", help="Varyasyon üret")
+    render_parser.add_argument("--seed", type=int, default=None, help="Deterministik seed")
+
+    args = parser.parse_args(argv)
 
     try:
-        out_path, sr = render_preset_to_wav(preset, duration, args.variant, output_path)
-    except Exception as exc:  # noqa: BLE001
-        sys.exit(f"Render hatasi: {exc}")
-
-    print(f"Yazildi: {out_path} (preset={preset.id}, duration={duration:.2f}s, variant={args.variant}, sr={sr} Hz)")
+        if args.command == "list":
+            _cmd_list_presets()
+        elif args.command == "render":
+            _cmd_render(
+                preset_id=args.preset,
+                output=args.output,
+                duration=args.duration,
+                sample_rate=args.sample_rate,
+                use_variant=args.variant,
+                seed=args.seed,
+            )
+    except Exception as e:
+        print(f"Hata: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
