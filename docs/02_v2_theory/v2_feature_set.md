@@ -1,70 +1,112 @@
-# UltraGen V2 — Feature Set (Kilitli)
+# ultragen v2 — feature set
 
-Bu doküman, UltraGen V2 aşamasında kullanılan
-feature (özellik) kümesini tanımlar.
+Status: LOCKED (V2)  
+Scope: Broadband / steady-state audio feature set for parameter projection  
+Out of scope: Transient/event features, embeddings, time-series ML
 
-Amaç:
-Gerçek dünya broadband / steady-state seslerinin,
-DSP parametre uzayına açıklanabilir ve stabil biçimde
-projeksiyonunu mümkün kılmak.
-
----
-
-## 1. Global Enerji ve Dinamik Feature’lar
-
-1) **RMS_mean**  
-Genel enerji seviyesi.
-
-2) **RMS_std_slow**  
-Enerji dalgalanmasının yavaş zaman varyansı.
-
-3) **Crest_factor**  
-Tepe / ortalama oranı; spike ve stabilite göstergesi.
+Bu doküman, UltraGen V2 aşamasında
+ML projeksiyon katmanına girecek
+feature setini ve hesaplama/özetleme kurallarını tanımlar.
 
 ---
 
-## 2. Global Spektral Feature’lar
+## 1. Kilitli Feature Listesi
 
-4) **Spectral_centroid_mean**  
-Genel parlaklık merkezi.
+Aşağıdaki feature seti V2 için kilitlenmiştir:
 
-5) **Spectral_centroid_std_slow**  
-Parlaklığın zaman içindeki yavaş dalgalanması.
-
-6) **Spectral_rolloff_85_mean**  
-Enerjinin %85’inin altında kaldığı frekans.
-
-7) **Spectral_flatness_mean**  
-Noise-benzerlik / tonalite göstergesi.
-
-8) **Spectral_tilt_estimate**  
-Uzun vadeli spektral eğim (noise rengi).
+- RMS_mean
+- RMS_std_slow
+- Crest_factor
+- Spectral_centroid_mean
+- Spectral_rolloff_85_mean
+- Spectral_tilt_estimate
+- Spectral_flatness_mean
+- Low_band_ratio
+- Amplitude_modulation_index_slow
 
 ---
 
-## 3. Bant ve Doku Feature’ları
+## 2. Genel Hesaplama İlkeleri
 
-9) **Zero_crossing_rate_mean**  
-Yüksek frekans içeriği için kaba gösterge.
-
-10) **Low_band_ratio**  
-Düşük frekans enerji oranı (örn. 20–200 Hz).
-
-11) **Mid_band_ratio**  
-Orta bant enerji oranı (örn. 200–2000 Hz).
+- Girdi ses: 60 sn, mono, 48 kHz
+- Feature hesaplamaları kısa pencereler üzerinden yapılır ve tüm klip için özetlenir
+- Özetleme hedefi: tek bir sabit boyutlu vektör üretmek
+- Normalization ve clipping kuralları `v2_mathematical_lock.md` ile uyumludur
 
 ---
 
-## 4. Yavaş Modülasyon Göstergesi
+## 3. Feature Tanımları ve Özetleme
 
-12) **Amplitude_modulation_index_slow**  
-Çok düşük frekanslı genlik dalgalanması göstergesi.
+### 3.1 RMS_mean
+Tanım: Klip genelinde ortalama enerji düzeyi.  
+Özetleme: kısa pencere RMS değerlerinin ortalaması.  
+Amaç: genel loudness/enerji haritalaması.
+
+### 3.2 RMS_std_slow
+Tanım: Enerjinin zaman içinde yavaş değişkenliği.  
+Özetleme: RMS zaman serisinin (yavaş ölçekli) standart sapması.  
+Amaç: “statik” vs “hafif dalgalı” karakter ayrımı.
+
+### 3.3 Crest_factor
+Tanım: Tepe enerji / ortalama enerji oranı (dinamik vurgu göstergesi).  
+Özetleme: klip düzeyinde tek değer (veya pencere bazlı hesaplanıp ortalama).  
+Amaç: “pürüzsüz noise” vs “impulsif yapı” ayrımı.
+
+### 3.4 Spectral_centroid_mean
+Tanım: Spektral ağırlık merkezinin ortalaması.  
+Özetleme: kısa pencere centroid değerlerinin ortalaması.  
+Amaç: parlaklık/açıklık göstergesi.
+
+### 3.5 Spectral_rolloff_85_mean
+Tanım: Enerjinin %85’inin altında kaldığı frekansın ortalaması.  
+Özetleme: kısa pencere rolloff değerlerinin ortalaması.  
+Amaç: yüksek frekans yayılımı ve bant genişliği.
+
+### 3.6 Spectral_tilt_estimate
+Tanım: dB/oktav eğim tahmini (broadband spektral renk).  
+Özetleme: klip düzeyinde tek tilt (veya pencere bazlı, robust özet).  
+Amaç: white/pink/brown benzeri karakter sürekliliği.
+
+### 3.7 Spectral_flatness_mean
+Tanım: Tonal yapı vs noise-benzeri doku ölçüsü.  
+Özetleme: kısa pencere flatness değerlerinin ortalaması.  
+Amaç: “düz noise” ile “tonal/harmonik sızıntı” ayrımı.
+
+### 3.8 Low_band_ratio
+Tanım: düşük bant enerjisinin toplam enerjiye oranı (ör. low / full).  
+Özetleme: klip düzeyinde oran (robust ortalama).  
+Amaç: hum/rumble gibi düşük frekans baskınlığını yakalamak.
+
+### 3.9 Amplitude_modulation_index_slow
+Tanım: yavaş genlik modülasyonu göstergesi (algısal “hareket”).  
+Özetleme: düşük frekans zarf modülasyonu üzerinden tek değer.  
+Amaç: “düz statik” vs “yavaş dalgalı” ambience ayrımı.
 
 ---
 
-## Notlar
+## 4. Bilinçli Olarak Dışarıda Bırakılanlar
 
-- Frame-level feature yoktur.
-- Feature’ların tamamı global veya yavaş zaman varyanslıdır.
-- Bu set, V2 için **kilitlidir**.
-- Event, transient ve tonal modelleme kapsam dışıdır.
+V2 kapsamında aşağıdakiler kullanılmaz:
+
+- transient/event yoğunluk ölçümleri
+- onset oranı, zero-crossing yoğunluğu gibi event ağırlıklı metrikler
+- embedding tabanlı feature’lar (CLAP vb.)
+- zaman serisi modelleme (sequence learning)
+
+Gerekçe:
+V2’nin hedefi broadband/steady-state projeksiyonudur ve veri sayısı küçüktür.
+
+---
+
+## 5. Benchmark Notları (C2 için)
+
+Aşağıdaki testler bu feature setinin sağlığını doğrulamak için kullanılır:
+
+- Leave-one-out stabilite: küçük veri altında projeksiyon kararlılığı
+- Feature perturbation: küçük değişim → kontrollü parametre değişimi
+- Sanity gate çarpma oranı: clamp/limit kullanımının düşük olması beklenir
+- Kategori içi kümelenme: aynı kategori örnekleri parametre uzayında yakın olmalıdır
+
+Bu benchmarklar model yarışması değildir; sistem davranışını doğrulamak içindir.
+
+
