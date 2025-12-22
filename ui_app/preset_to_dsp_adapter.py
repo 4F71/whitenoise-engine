@@ -14,11 +14,11 @@ Sorumluluk sınırı:
 - Render çağrısı İÇERMEZ
 """
 
-from typing import Callable
+from typing import Callable, Optional
 import numpy as np
 from numpy.typing import NDArray
 
-from preset_system.preset_schema import PresetConfig, LayerConfig
+from preset_system.preset_schema import PresetConfig, LayerConfig, FilterConfig, LfoConfig
 from core_dsp.dsp_noise import (
     generate_white_noise,
     generate_pink_noise,
@@ -26,6 +26,7 @@ from core_dsp.dsp_noise import (
     generate_blue_noise,
     generate_violet_noise,
 )
+from core_dsp import dsp_filters, dsp_lfo
 
 
 # =============================================================================
@@ -55,7 +56,9 @@ NOISE_GENERATOR_MAP: dict[str, Callable[..., AudioBuffer]] = {
 
 def _create_layer_generator(
     noise_type: str,
-    gain: float
+    gain: float,
+    filter_config: Optional[FilterConfig] = None,
+    lfo_config: Optional[LfoConfig] = None
 ) -> LayerGenerator:
     """
     Tek bir katman için generator fonksiyonu oluşturur.
@@ -63,6 +66,8 @@ def _create_layer_generator(
     Args:
         noise_type: Gürültü tipi ("white", "pink", "brown", "blue", "violet")
         gain: Kazanç çarpanı (0.0 - 1.0)
+        filter_config: Filtre yapılandırması (opsiyonel)
+        lfo_config: LFO yapılandırması (opsiyonel)
         
     Returns:
         (duration_sec, sample_rate) -> AudioBuffer imzalı Callable
@@ -95,7 +100,26 @@ def _create_layer_generator(
             sample_rate=sample_rate,
         )
         
+        # Gain uygula
         audio = audio * clamped_gain
+        
+        # Filter uygula (opsiyonel)
+        if filter_config and filter_config.enabled:
+            if filter_config.filter_type == "lowpass":
+                audio = dsp_filters.one_pole_lowpass(audio, filter_config.cutoff_hz, sample_rate)
+            elif filter_config.filter_type == "highpass":
+                audio = dsp_filters.one_pole_highpass(audio, filter_config.cutoff_hz, sample_rate)
+        
+        # LFO uygula (opsiyonel)
+        if lfo_config and lfo_config.enabled:
+            # LFO vektörü üret
+            lfo_vector = dsp_lfo.sine_lfo(lfo_config.rate_hz, duration_sec, sample_rate)
+            
+            if lfo_config.target == "amplitude":
+                audio = dsp_lfo.apply_volume_lfo(audio, lfo_vector, lfo_config.depth)
+            elif lfo_config.target == "filter":
+                # apply_filter_lfo sadece kesim frekansları döndürür, amplitude LFO olarak kullan
+                audio = dsp_lfo.apply_volume_lfo(audio, lfo_vector, lfo_config.depth)
         
         return audio.astype(np.float32)
     
@@ -116,7 +140,8 @@ def adapt_preset_to_layer_generators(
     - Sadece enabled == True olan katmanları işler
     - noise_type string'ini ilgili DSP fonksiyonuna eşler
     - gain değerini sinyal çarpanı olarak uygular
-    - V1 kapsamında pan/filter/lfo ATLANIR
+    - filter (lowpass/highpass) ve LFO (amplitude/filter) işler
+    - V1 noise, gain, filter ve LFO içerir. Pan desteği V2'de eklenecektir.
     
     Args:
         preset: Dönüştürülecek preset yapılandırması
@@ -141,7 +166,9 @@ def adapt_preset_to_layer_generators(
         
         generator = _create_layer_generator(
             noise_type=layer.noise_type,
-            gain=layer.gain
+            gain=layer.gain,
+            filter_config=layer.filter_config,
+            lfo_config=layer.lfo_config
         )
         
         generators.append(generator)

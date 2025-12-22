@@ -3,8 +3,20 @@ __pycache__/
 *.pyc
 output/
 logs/
+.vscode/
+.cursor/
+
 
 user/
 referans/
 v2_dataset/
+noise_app_first_draft/
+
+
+*.npy
+*.wav
+*.flac
+*.mp3
+
+
 

@@ -1,3 +1,4 @@
+"""
 # -*- coding: utf-8 -*-
 """
 ████████╗██╗████████╗ █████╗ ███╗   ██╗
@@ -482,3 +483,5 @@ def run_app():
 if __name__ == "__main__":
     if "streamlit" in sys.modules: run_app()
     else: print("Komut: streamlit run api.py")
+
+"""

@@ -1,0 +1,37 @@
+# --- Core / Locked DSP ---
+core_dsp/
+timbre_engine/
+graph_engine/
+
+# --- Generated / Binary / Data ---
+data/
+*.npy
+*.wav
+*.flac
+*.mp3
+
+# --- Logs / Outputs ---
+logs/
+results/
+outputs/
+
+# --- Experiments / Drafts ---
+noise_app_first_draft/
+benchmarks/__pycache__/
+.pytest_cache/
+
+# --- Virtual env / Local ---
+.venv/
+env/
+__pycache__/
+
+# --- Dataset (locked by design) ---
+v2_dataset/
+
+# --- Git internals ---
+.git/
+.gitignore
+
+# --- Cursor / IDE internals ---
+.cursor/
+.vscode/

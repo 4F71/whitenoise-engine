@@ -1,14 +1,19 @@
 import argparse
 import sys
+import os
 import time
 import wave
 from typing import Optional
 
 import numpy as np
 
+# Proje kök dizinini path'e ekle
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from preset_system.preset_library import get_preset, list_all_presets
 from preset_system.preset_autogen import generate_variant
-from core_dsp.dsp_render import render_sound
+from core_dsp import dsp_render
+from ui_app.preset_to_dsp_adapter import adapt_preset_to_layer_generators
 
 
 _DEFAULT_SAMPLE_RATE = 44100
@@ -34,14 +39,16 @@ def _cmd_list_presets() -> None:
     """
     Mevcut preset listesini yazdırır.
     """
-    presets = list_presets()
-    if not presets:
+    preset_ids = list_all_presets()
+    if not preset_ids:
         print("Preset bulunamadı.")
         return
 
     print("\n--- Mevcut Presetler ---")
-    for preset in presets:
-        print(f"{preset.id} - {preset.name}")
+    for preset_id in preset_ids:
+        preset = get_preset(preset_id)
+        if preset:
+            print(f"{preset_id} - {preset.name}")
 
 
 def _cmd_render(
@@ -67,12 +74,15 @@ def _cmd_render(
 
     print(f"\nRender Başlıyor... ({duration} saniye, {sample_rate} Hz)")
     start = time.time()
-    signal = render_sound(
-        preset_params=config.to_dict(),
+    
+    # Preset → Adapter → DSP
+    generators = adapt_preset_to_layer_generators(config)
+    signal = dsp_render.render_sound(
+        generators,
         duration_sec=duration,
         sample_rate=sample_rate,
-        seed=seed if seed is not None else config.seed,
     )
+    
     elapsed = time.time() - start
     print(f"Render Tamamlandı ({elapsed:.2f}s)")
 

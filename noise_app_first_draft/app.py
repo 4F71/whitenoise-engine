@@ -1,3 +1,4 @@
+"""
 #!/usr/bin/env python3
 import argparse
 import logging
@@ -1749,3 +1750,4 @@ if __name__ == "__main__":
             print("Streamlit yüklü değil. CLI kullanın veya 'pip install streamlit'.")
         else:
             run_streamlit_app()
+"""
