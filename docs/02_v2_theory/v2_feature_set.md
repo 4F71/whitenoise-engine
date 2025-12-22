@@ -22,7 +22,11 @@ Aşağıdaki feature seti V2 için kilitlenmiştir:
 - Spectral_tilt_estimate
 - Spectral_flatness_mean
 - Low_band_ratio
+- Mid_band_ratio
+- Zero_crossing_rate_mean
 - Amplitude_modulation_index_slow
+
+Toplam: 11 feature
 
 ---
 
@@ -73,14 +77,24 @@ Tanım: Tonal yapı vs noise-benzeri doku ölçüsü.
 Amaç: “düz noise” ile “tonal/harmonik sızıntı” ayrımı.
 
 ### 3.8 Low_band_ratio
-Tanım: düşük bant enerjisinin toplam enerjiye oranı (ör. low / full).  
+Tanım: düşük bant (20-200 Hz) enerjisinin toplam enerjiye oranı.  
 Özetleme: klip düzeyinde oran (robust ortalama).  
 Amaç: hum/rumble gibi düşük frekans baskınlığını yakalamak.
 
 ### 3.9 Amplitude_modulation_index_slow
-Tanım: yavaş genlik modülasyonu göstergesi (algısal “hareket”).  
+Tanım: yavaş genlik modülasyonu göstergesi (algısal "hareket").  
 Özetleme: düşük frekans zarf modülasyonu üzerinden tek değer.  
-Amaç: “düz statik” vs “yavaş dalgalı” ambience ayrımı.
+Amaç: "düz statik" vs "yavaş dalgalı" ambience ayrımı.
+
+### 3.10 Mid_band_ratio
+Tanım: orta bant (200-2000 Hz) enerjisinin toplam enerjiye oranı.  
+Özetleme: klip düzeyinde oran (robust ortalama).  
+Amaç: spektral denge ve stereo width eşlemesi.
+
+### 3.11 Zero_crossing_rate_mean
+Tanım: sinyalin sıfır eksenini kesme sıklığı (normalize edilmiş).  
+Özetleme: kısa pencere ZCR değerlerinin ortalaması.  
+Amaç: yüksek frekans aktivitesi ve blue/violet noise tespiti.
 
 ---
 
@@ -89,8 +103,8 @@ Amaç: “düz statik” vs “yavaş dalgalı” ambience ayrımı.
 V2 kapsamında aşağıdakiler kullanılmaz:
 
 - transient/event yoğunluk ölçümleri
-- onset oranı, zero-crossing yoğunluğu gibi event ağırlıklı metrikler
-- embedding tabanlı feature’lar (CLAP vb.)
+- onset oranı gibi event ağırlıklı metrikler
+- embedding tabanlı feature'lar (CLAP vb.)
 - zaman serisi modelleme (sequence learning)
 
 Gerekçe:

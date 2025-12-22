@@ -104,10 +104,11 @@ Sonra (A) ile normalize edilir.
 
 ---
 
-#### (C) Spektral Oran ve Doku Feature’ları
+#### (C) Spektral Oran ve Doku Feature'ları
 - Spectral_flatness_mean
 - Low_band_ratio
 - Mid_band_ratio
+- Zero_crossing_rate_mean
 
 **Robust min–max:**
 \[
