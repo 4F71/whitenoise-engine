@@ -12,6 +12,10 @@ referans/
 v2_dataset/
 noise_app_first_draft/
 
+v2_ml/data/
+v2_ml/models/
+v2_ml/presets/
+
 
 *.npy
 *.wav
