@@ -15,7 +15,7 @@ noise_app_first_draft/
 v2_ml/data/
 v2_ml/models/
 v2_ml/presets/
-
+v2_ml/render_test/
 
 *.npy
 *.wav

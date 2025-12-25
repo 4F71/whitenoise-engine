@@ -42,11 +42,11 @@ telifsiz procedural preset’ler üretmek.
 - [x] matematiksel kilit dokümanı
 - [x] core_dsp uyum denetimi
 - [x] preset_to_dsp_adapter denetimi
-- [ ] preset family mantığının tanımlanması
-- [ ] varyant üretim kuralları (mean + spread)
-- [ ] ilk regression tabanlı ml modeli
-- [ ] 17 referans ses → preset aileleri
-- [ ] v2 çıktılarının içerik üretiminde kullanılması
+- [x] preset family mantığının tanımlanması
+- [x] varyant üretim kuralları (mean + spread)
+- [x] ilk regression tabanlı ml modeli
+- [x] 17 referans ses → preset aileleri
+- [x] v2 çıktılarının içerik üretiminde kullanılması
 
 ### kapsam dışı
 - deep learning
