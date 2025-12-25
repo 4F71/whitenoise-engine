@@ -16,6 +16,7 @@ v2_ml/data/
 v2_ml/models/
 v2_ml/presets/
 v2_ml/render_test/
+v2_ml/benchmarks
 
 *.npy
 *.wav
