@@ -72,17 +72,18 @@ def main():
     # 2. Preset Seçimi
     st.subheader("1. Preset Seçimi")
 
-    preset_ids = preset_library.list_all_presets()
-    all_presets = [preset_library.get_preset(pid) for pid in preset_ids]
-    preset_names = [p.name for p in all_presets]
+    from preset_system.preset_library import list_v2_presets, get_v2_preset
+    v2_presets = list_v2_presets()
+    preset_names = [p["name"] for p in v2_presets]
 
     selected_index = st.selectbox(
-        "Bir atmosfer seçin:",
-        range(len(all_presets)),
+        "V2 Preset Seç (102 ML-generated):",
+        range(len(v2_presets)),
         format_func=lambda x: preset_names[x]
     )
-    selected_preset = all_presets[selected_index]
-    selected_preset_id = preset_ids[selected_index]
+    selected_preset = get_v2_preset(v2_presets[selected_index]["path"])
+    selected_preset_id = v2_presets[selected_index]["name"]
+
 
     with st.expander("Preset Detayları", expanded=True):
         st.markdown(f"**ID:** `{selected_preset_id}`")

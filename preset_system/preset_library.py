@@ -13,7 +13,8 @@ Sorumluluk sınırı:
 - DSP işlemi İÇERMEZ
 - Ses üretimi İÇERMEZ
 """
-
+from pathlib import Path
+import json
 from typing import Optional
 from preset_system.preset_schema import (
     PresetConfig,
@@ -1044,3 +1045,28 @@ if __name__ == "__main__":
     print("-" * 35)
     print(f"{'TOPLAM':<20} {get_preset_count():<15}")
     print("=" * 60)
+
+def get_v2_preset(preset_path):
+    """V2 preset'i yükle"""
+    with open(preset_path, 'r', encoding='utf-8') as f:
+        preset_dict = json.load(f)
+    
+    return PresetConfig(**preset_dict)
+
+def list_v2_presets():
+    """V2 preset'leri listele"""
+    presets = []
+    v2_folder = Path("v2_ml/presets")
+    
+    # p0, p1, p2, p3, p4, p5 klasörlerini tara
+    for folder in v2_folder.glob("p*"):
+        # Her klasördeki JSON'ları bul
+        for json_file in folder.glob("*.json"):
+            presets.append({
+                "name": json_file.stem,  # Dosya adı (.json olmadan)
+                "path": str(json_file),  # Tam yol
+                "profile": folder.name.upper()  # P0, P1, P2...
+            })
+    
+    return presets
+

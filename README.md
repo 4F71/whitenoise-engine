@@ -43,5 +43,5 @@ docs/           # Teknik dokümantasyon
 
 ---
 
-**Lisans:** [MIT/Proprietary - belirt]  
+**Lisans:** [MIT/Proprietary]  
 **Durum:** Aktif Geliştirme | Production kullanımı için hazır değil
