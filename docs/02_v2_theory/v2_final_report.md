@@ -1,7 +1,7 @@
 # UltraGen V2 ML Pipeline — Final Raporu
 
 **Proje:** UltraGen V2 — Feature-to-Parameter ML Projeksiyonu  
-**Durum:** ✅ PRODUCTION-READY  
+**Durum:** PRODUCTION-READY  
 **Tarih:** 25 Aralık 2024  
 **Versiyon:** 2.0
 
@@ -28,13 +28,13 @@ UltraGen V2 ML pipeline'ı, broadband/steady-state noise üretimi için feature-
 
 | Hedef | Durum | Not |
 |-------|-------|-----|
-| Feature extraction (11 feature) | ✅ Tamamlandı | librosa tabanlı, 48kHz |
-| Robust normalizasyon (tanh/log/minmax) | ✅ Tamamlandı | 3σ clipping uygulandı |
-| ML model eğitimi (Ridge) | ✅ Tamamlandı | LOO R²=0.88 |
-| Pseudo-label üretimi | ✅ Tamamlandı | Kural tabanlı mapping |
-| Preset ailesi üretimi (P0-P5) | ✅ Tamamlandı | 102 preset |
-| C2 benchmark'lar | ⚠️ 3/4 Geçti | C2.2 test kriteri sorunu |
-| Render validasyonu | ✅ Tamamlandı | 9/9 başarılı |
+| Feature extraction (11 feature) | Tamamlandı | librosa tabanlı, 48kHz |
+| Robust normalizasyon (tanh/log/minmax) |  Tamamlandı | 3σ clipping uygulandı |
+| ML model eğitimi (Ridge) | Tamamlandı | LOO R²=0.88 |
+| Pseudo-label üretimi | Tamamlandı | Kural tabanlı mapping |
+| Preset ailesi üretimi (P0-P5) | Tamamlandı | 102 preset |
+| C2 benchmark'lar | 3/4 Geçti | C2.2 test kriteri sorunu |
+| Render validasyonu | Tamamlandı | 9/9 başarılı |
 
 ### 1.2 Kapsam
 
@@ -166,7 +166,7 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Metrik | Değer | Eşik | Durum |
 |--------|-------|------|-------|
-| LOO R² | 0.880 | > 0.70 | ✅ GEÇTİ |
+| LOO R² | 0.880 | > 0.70 |  GEÇTİ |
 | LOO MAE | 10.744 | — | — |
 | LOO MSE | 1913.27 | — | — |
 
@@ -176,18 +176,18 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Parametre | R² | MAE | Durum |
 |-----------|-----|-----|-------|
-| normalize_target_db | 1.000 | 0.000 | ✅ Mükemmel (sabit) |
-| lfo_target_encoded | 1.000 | 0.000 | ✅ Mükemmel (sabit) |
-| reverb_send | 1.000 | 0.000 | ✅ Mükemmel (sabit) |
-| lp_cutoff_hz | 0.935 | 120.8 Hz | ✅ Mükemmel |
-| lfo_depth | 0.906 | 0.019 | ✅ Mükemmel |
-| lfo_rate_hz | 0.905 | 0.004 Hz | ✅ Mükemmel |
-| soft_saturation_amount | 0.898 | 0.003 | ✅ Mükemmel |
-| spectral_tilt_db | 0.871 | 0.280 dB | ✅ İyi |
-| noise_type_encoded | 0.829 | 0.342 | ✅ İyi |
-| stereo_width | 0.826 | 0.028 | ✅ İyi |
-| hp_cutoff_hz | 0.765 | 6.6 Hz | ✅ İyi |
-| **gain_db** | **0.623** | **0.8 dB** | ⚠️ Kabul Edilebilir |
+| normalize_target_db | 1.000 | 0.000 |  Mükemmel (sabit) |
+| lfo_target_encoded | 1.000 | 0.000 |  Mükemmel (sabit) |
+| reverb_send | 1.000 | 0.000 |  Mükemmel (sabit) |
+| lp_cutoff_hz | 0.935 | 120.8 Hz |  Mükemmel |
+| lfo_depth | 0.906 | 0.019 |  Mükemmel |
+| lfo_rate_hz | 0.905 | 0.004 Hz |  Mükemmel |
+| soft_saturation_amount | 0.898 | 0.003 | Mükemmel |
+| spectral_tilt_db | 0.871 | 0.280 dB | İyi |
+| noise_type_encoded | 0.829 | 0.342 | İyi |
+| stereo_width | 0.826 | 0.028 | İyi |
+| hp_cutoff_hz | 0.765 | 6.6 Hz | İyi |
+| **gain_db** | **0.623** | **0.8 dB** | Kabul Edilebilir |
 
 **Özet:**
 - 11/12 parametre R² > 0.70 elde ediyor
@@ -198,13 +198,13 @@ DSP Render (noise → filter → LFO → çıktı)
 
 #### C2.1 — Leave-One-Out Stabilite Testi
 
-**Sonuç:** ✅ **GEÇTİ**
+**Sonuç:**  **GEÇTİ**
 
 | Metrik | Değer | Eşik | Durum |
 |--------|-------|------|-------|
-| LOO R² | 0.880 | > 0.70 | ✅ |
+| LOO R² | 0.880 | > 0.70 | Geçti |
 | LOO MAE | 10.744 | — | — |
-| Düşük R² parametreler | 1 (gain_db) | — | ⚠️ |
+| Düşük R² parametreler | 1 (gain_db) | — | Dikkat edilmeli|
 
 **Sonuç:** Model kararlı ve overfitting yapmıyor.
 
@@ -216,9 +216,9 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Perturbation | Beklenen Parametre | Beklenen Değişim | Gerçek Değişim | Durum |
 |--------------|-------------------|------------------|----------------|-------|
-| RMS +10% | gain_db ↑ | > +0.1 dB | **-0.264 dB** | ❌ Ters yönlü |
-| Centroid +5% | lp_cutoff_hz ↑ | > +100 Hz | **+20.2 Hz** | ⚠️ Zayıf |
-| AM_index +10% | lfo_depth ↑ | > +0.01 | **+0.007** | ⚠️ Zayıf |
+| RMS +10% | gain_db ↑ | > +0.1 dB | **-0.264 dB** | Ters yönlü |
+| Centroid +5% | lp_cutoff_hz ↑ | > +100 Hz | **+20.2 Hz** | Zayıf |
+| AM_index +10% | lfo_depth ↑ | > +0.01 | **+0.007** | Zayıf |
 
 **Sorun Analizi:**
 - **RMS → gain_db ters:** Test kriteri hatası. Model normalize için doğru ters ilişki uyguluyor (yüksek RMS → düşük gain).
@@ -229,19 +229,19 @@ DSP Render (noise → filter → LFO → çıktı)
 - Centroid eşiği: +50 Hz'e düşür
 - AM_index eşiği: +0.005'e düşür
 
-**Düzeltilmiş Sonuç:** 2/3 monoton → ✅ GEÇTİ
+**Düzeltilmiş Sonuç:** 2/3 monoton → GEÇTİ
 
 ---
 
 #### C2.3 — Sanity Gate Clamp Oranı
 
-**Sonuç:** ✅ **GEÇTİ**
+**Sonuç:**  **GEÇTİ**
 
 | Metrik | Değer | Eşik | Durum |
 |--------|-------|------|-------|
 | Toplam değer | 136 (17×8) | — | — |
 | Clamp edilmiş | 1 | — | — |
-| Clamp oranı | 0.7% | < 10% | ✅ |
+| Clamp oranı | 0.7% | < 10% | Geçti |
 
 **Clamp Edilen Parametreler:**
 - `soft_saturation`: 1/17 (hafif üst sınır aşımı)
@@ -252,7 +252,7 @@ DSP Render (noise → filter → LFO → çıktı)
 
 #### C2.4 — Kategori Tutarlılığı
 
-**Sonuç:** ✅ **GEÇTİ**
+**Sonuç:**  **GEÇTİ**
 
 **Kategori İçi Mesafeler (L2):**
 
@@ -269,7 +269,7 @@ DSP Render (noise → filter → LFO → çıktı)
 **Kriter:** Kategori içi ort < Kategoriler arası ort
 
 ```
-482.29 < 755.72  ✅ GEÇTİ
+482.29 < 755.72   GEÇTİ
 ```
 
 **Sonuç:** Aynı kategorideki sesler birbirine yakın kümeleniyor. Kategoriler birbirinden ayrışmış.
@@ -280,12 +280,12 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Test | Durum | Kritik |
 |------|-------|--------|
-| C2.1 LOO Stabilite | ✅ GEÇTİ | Evet |
-| C2.2 Feature Perturbation | ⚠️ UYARI | Hayır (test kriteri sorunu) |
-| C2.3 Sanity Gate Clamp | ✅ GEÇTİ | Evet |
-| C2.4 Kategori Tutarlılığı | ✅ GEÇTİ | Evet |
+| C2.1 LOO Stabilite |  GEÇTİ | Evet |
+| C2.2 Feature Perturbation | UYARI | Hayır (test kriteri sorunu) |
+| C2.3 Sanity Gate Clamp |  GEÇTİ | Evet |
+| C2.4 Kategori Tutarlılığı |  GEÇTİ | Evet |
 
-**Genel:** ✅ **C2 BAŞARILI** (materyal geçiyor, test C2.2 revizyon gerekli)
+**Genel:** **C2 BAŞARILI** (materyal geçiyor, test C2.2 revizyon gerekli)
 
 ### 4.3 Render Test Sonuçları
 
@@ -295,15 +295,15 @@ DSP Render (noise → filter → LFO → çıktı)
 - 48 kHz, mono, 16-bit WAV
 - Peak -3 dB'ye normalize edildi
 
-**Sonuç:** ✅ **9/9 BAŞARILI**
+**Sonuç:** **9/9 BAŞARILI**
 
 #### Noise Type'a Göre Spektral Karakter
 
 | Noise Type | Ort Centroid | Örnek | Fiziksel Beklenti |
 |------------|--------------|-------|-------------------|
-| blue | 12960 Hz | 2 | ✅ Yüksek-frek baskın |
-| brown | 1610 Hz | 3 | ✅ Düşük-frek baskın |
-| pink | 372 Hz | 4 | ✅ Dengeli (LP filter agresif) |
+| blue | 12960 Hz | 2 | Yüksek-frek baskın |
+| brown | 1610 Hz | 3 | Düşük-frek baskın |
+| pink | 372 Hz | 4 | Dengeli (LP filter agresif) |
 
 **Gözlem:** Noise type'lar spektral olarak doğru ayrılmış.
 
@@ -313,12 +313,12 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Profil | Ort Centroid | Ort RMS (dB) | Örnek | Karakter |
 |---------|--------------|--------------|-------|----------|
-| P4 (havadar) | 7423 Hz | -14.3 | 2 | ✅ Parlak, açık |
-| P0 (referans) | 3839 Hz | -14.9 | 4 | ✅ Dengeli |
-| P2 (koyu) | 841 Hz | -14.8 | 2 | ✅ Bastırılmış, derin |
-| P1 (yumuşak) | 358 Hz | -15.6 | 1 | ✅ Çok nazik |
+| P4 (havadar) | 7423 Hz | -14.3 | 2 | Parlak, açık |
+| P0 (referans) | 3839 Hz | -14.9 | 4 | Dengeli |
+| P2 (koyu) | 841 Hz | -14.8 | 2 | Bastırılmış, derin |
+| P1 (yumuşak) | 358 Hz | -15.6 | 1 | Çok nazik |
 
-**Sıralama:** P1 < P2 < P0 < P4 ✅ **Doğru spektral ilerleme**
+**Sıralama:** P1 < P2 < P0 < P4  **Doğru spektral ilerleme**
 
 ---
 
@@ -327,8 +327,8 @@ DSP Render (noise → filter → LFO → çıktı)
 | Profil | LP Cutoff | Centroid | RMS (dB) | Profil Etkisi |
 |---------|-----------|----------|----------|--------------|
 | P0 | 2788 Hz | 1670 Hz | -14.8 | Baseline |
-| P2 (koyu) | 1952 Hz | 1367 Hz | -15.2 | ✅ -30% LP → -18% centroid |
-| P4 (havadar) | 3207 Hz | 1792 Hz | -15.8 | ✅ +15% LP → +7% centroid |
+| P2 (koyu) | 1952 Hz | 1367 Hz | -15.2 |  -30% LP → -18% centroid |
+| P4 (havadar) | 3207 Hz | 1792 Hz | -15.8 |  +15% LP → +7% centroid |
 
 **Sonuç:** Profil dönüşümleri, amaçlanan değişiklikleri uygularken karakteri koruyor.
 
@@ -396,7 +396,7 @@ DSP Render (noise → filter → LFO → çıktı)
 
 **Sebep:** `preset_to_dsp_adapter` kısıtlaması (sadece noise → filter → LFO destekliyor)
 
-**Etki:** ❌ **Kritik Değil**
+**Etki:**  **Kritik Değil**
 - Temel karakter (noise type, LP filter, LFO) korunuyor
 - FX chain tını etkiler ama temel davranışı değil
 - Render testleri FX olmadan başarılı
@@ -430,7 +430,7 @@ DSP Render (noise → filter → LFO → çıktı)
 - Pink noise doğal olarak düşük-frek ağırlıklı
 - Kombine etki centroid'i aşağı çekiyor
 
-**Etki:** ❌ **Kritik Değil** — Pink noise karakteri hala brown/blue'dan ayırt edilebilir.
+**Etki:**  **Kritik Değil** — Pink noise karakteri hala brown/blue'dan ayırt edilebilir.
 
 ---
 
@@ -450,7 +450,7 @@ DSP Render (noise → filter → LFO → çıktı)
 
 **Sebep:** Tek feature (RMS_mean) yetersiz. Multi-feature etkileşimi gerekli (RMS + Crest + Flatness).
 
-**Etki:** ⚠️ **Minör** — gain_db tahminleri kabul edilebilir, sadece daha az kesin.
+**Etki:**  **Minör** — gain_db tahminleri kabul edilebilir, sadece daha az kesin.
 
 **İyileştirme:** Etkileşim terimleri veya polinom feature'ları ekle.
 
@@ -534,10 +534,10 @@ DSP Render (noise → filter → LFO → çıktı)
 
 | Özellik | V2 Durumu | V3 Önerisi |
 |---------|-----------|------------|
-| Feature extraction | ✅ Kilitli (11 feature) | 15-20 feature'a genişlet? |
-| ML modeli | ✅ Ridge | Transfer learning / fine-tuning |
-| Preset yapısı | ✅ Layer'lar + FX | Node/Graph mimarisi |
-| FX chain | ❌ Uygulanmadı | ✅ Tam FX desteği |
+| Feature extraction |  Kilitli (11 feature) | 15-20 feature'a genişlet? |
+| ML modeli |  Ridge | Transfer learning / fine-tuning |
+| Preset yapısı |  Layer'lar + FX | Node/Graph mimarisi |
+| FX chain | Uygulanmadı |  Tam FX desteği |
 | Dataset | 17 örnek | 50+ örnek |
 
 ---
@@ -571,11 +571,11 @@ Tüm temel hedefler karşılandı. Sistem **production-ready** durumda.
 
 | Metrik | Değer | Hedef | Durum |
 |--------|-------|-------|-------|
-| Model R² (LOO) | 0.880 | > 0.70 | ✅ |
-| Parametre R² > 0.70 | 11/12 | ≥ 10/12 | ✅ |
-| C2 benchmark | 3/4 geçti | ≥ 3/4 | ✅ |
-| Render başarısı | 9/9 | ≥ 8/9 | ✅ |
-| Üretilen preset | 102 | 100+ | ✅ |
+| Model R² (LOO) | 0.880 | > 0.70 | Geçti |
+| Parametre R² > 0.70 | 11/12 | ≥ 10/12 | Geçti |
+| C2 benchmark | 3/4 geçti | ≥ 3/4 | Geçti |
+| Render başarısı | 9/9 | ≥ 8/9 | Geçti |
+| Üretilen preset | 102 | 100+ | Geçti |
 
 ---
 
@@ -722,6 +722,7 @@ wavfile.write("cikti.wav", 48000, audio_int16)
 ```
 
 ---
+
 
 
 
