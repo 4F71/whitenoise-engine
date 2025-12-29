@@ -24,4 +24,5 @@ v2_ml/benchmarks
 *.mp3
 
 
-
+.cursorrules
+.cursorignore
