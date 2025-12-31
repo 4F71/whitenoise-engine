@@ -59,7 +59,7 @@ def create_preset_json(params, filename):
     preset = {
         "name": preset_name,
         "description": f"P0 baseline preset generated from ML model (Ridge)",
-        "author": "UltraGen V2 ML",
+        "author": "xxxDSP V2 ML",
         "version": "2.0",
         "tags": ["v2", "ml-generated", "p0", "baseline"],
         "layers": [

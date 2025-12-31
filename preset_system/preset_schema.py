@@ -477,7 +477,7 @@ if __name__ == "__main__":
     complex_preset = PresetConfig(
         name="Deep Focus",
         description="Derin konsantrasyon için ambient gürültü",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=["focus", "ambient", "work"],
         layers=[

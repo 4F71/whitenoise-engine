@@ -1,4 +1,4 @@
-# UltraGen V2 — C2 Benchmark
+# xxxDSP V2 — C2 Benchmark
 # Feature Perturbation Testi
 # Amaç: Feature uzayındaki küçük değişimlerin parametre uzayında
 #       monoton, sınırlı ve sezgisel tepkiler üretip üretmediğini gözlemlemek.
@@ -106,7 +106,7 @@ def feature_perturbation_test(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="UltraGen V2 C2 — Feature Perturbation Testi"
+        description="xxxDSP V2 C2 — Feature Perturbation Testi"
     )
     parser.add_argument(
         "--features",

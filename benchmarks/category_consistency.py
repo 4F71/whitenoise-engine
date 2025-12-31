@@ -1,4 +1,4 @@
-# UltraGen V2 — C2 Benchmark
+# xxxDSP V2 — C2 Benchmark
 # Kategori İçi Tutarlılık Testi
 # Amaç: Aynı kategori örneklerinin parametre uzayında yakın,
 #       farklı kategorilerin ise ayrışmış olup olmadığını ölçmek.
@@ -83,7 +83,7 @@ def category_consistency(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="UltraGen V2 C2 — Kategori İçi Tutarlılık Testi"
+        description="xxxDSP V2 C2 — Kategori İçi Tutarlılık Testi"
     )
     parser.add_argument(
         "--features",

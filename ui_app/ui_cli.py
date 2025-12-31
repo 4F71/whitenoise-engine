@@ -92,11 +92,11 @@ def _cmd_render(
 
 def main(argv: Optional[list[str]] = None) -> None:
     """
-    UltraGen CLI ana giriş noktası.
+    xxxDSP CLI ana giriş noktası.
     """
     parser = argparse.ArgumentParser(
-        prog="ultragen",
-        description="UltraGen WhiteNoise Engine CLI",
+        prog="xxxdsp",
+        description="xxxDSP xxxDSP Engine CLI",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

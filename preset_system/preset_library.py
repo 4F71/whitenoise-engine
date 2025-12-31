@@ -47,7 +47,7 @@ def _create_pure_white_noise() -> PresetConfig:
         name="Pure White Noise",
         description="Klasik beyaz gürültü. Tüm frekanslar eşit güçte. "
                     "Keskin ve net bir ses karakteri.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_FOCUS, CATEGORY_PRODUCTIVITY, "classic", "white"],
         layers=[
@@ -70,7 +70,7 @@ def _create_soft_pink_noise() -> PresetConfig:
         name="Soft Pink Noise",
         description="Doğal ve yumuşak pembe gürültü. Düşük frekanslara doğru "
                     "azalan enerji. İnsan kulağına en doğal gelen gürültü tipi.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_SLEEP, CATEGORY_MEDITATION, "soft", "pink"],
         layers=[
@@ -102,7 +102,7 @@ def _create_deep_brown_noise() -> PresetConfig:
         name="Deep Brown Noise",
         description="Derin ve zengin kahverengi gürültü. Bas frekanslar baskın. "
                     "Uzak gök gürültüsü veya şelale hissi verir.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_SLEEP, CATEGORY_AMBIENT, "deep", "brown", "bass"],
         layers=[
@@ -135,7 +135,7 @@ def _create_bright_blue_noise() -> PresetConfig:
         name="Bright Blue Noise",
         description="Yüksek frekanslara vurgulu mavi gürültü. "
                     "Tiz ve parlak karakter. Tinnitus maskeleme için uygun.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_FOCUS, "bright", "blue", "tinnitus"],
         layers=[
@@ -164,7 +164,7 @@ def _create_sharp_violet_noise() -> PresetConfig:
         name="Sharp Violet Noise",
         description="En yüksek frekanslara vurgulu violet gürültü. "
                     "Çok parlak ve keskin. Dikkat gerektiren işler için.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_FOCUS, CATEGORY_PRODUCTIVITY, "sharp", "violet", "bright"],
         layers=[
@@ -193,7 +193,7 @@ def _create_deep_focus() -> PresetConfig:
         name="Deep Focus",
         description="Derin konsantrasyon için optimize edilmiş çok katmanlı gürültü. "
                     "Brown temel üzerine hafif pink doku. Uzun çalışma seansları için ideal.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_FOCUS, CATEGORY_PRODUCTIVITY, "layered", "work", "study"],
         layers=[
@@ -246,7 +246,7 @@ def _create_sleep_cocoon() -> PresetConfig:
         description="Derin uyku için sarmalayıcı ses ortamı. "
                     "Düşük frekans ağırlıklı, yavaş modülasyonlu. "
                     "Beyin dalgalarını yavaşlatmaya yardımcı.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_SLEEP, "relaxing", "night", "rest", "layered"],
         layers=[
@@ -307,7 +307,7 @@ def _create_meditation_space() -> PresetConfig:
         description="Meditasyon ve mindfulness için geniş ses alanı. "
                     "Dengeli frekans dağılımı, nefes ritmiyle uyumlu modülasyon. "
                     "Zihinsel berraklık ve huzur için tasarlandı.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_MEDITATION, "mindfulness", "calm", "breath", "layered"],
         layers=[
@@ -371,7 +371,7 @@ def _create_rain_simulation() -> PresetConfig:
         description="Gerçekçi yağmur ses simülasyonu. "
                     "Pink ve white noise karışımı ile damla hissi. "
                     "Pencere camına vuran yağmur etkisi.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_NATURE, CATEGORY_SLEEP, "rain", "weather", "layered"],
         layers=[
@@ -450,7 +450,7 @@ def _create_ocean_waves() -> PresetConfig:
         description="Sakin okyanus dalgaları simülasyonu. "
                     "Ritmik dalga hareketi ile huzur verici atmosfer. "
                     "Kıyıda oturma hissi.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_NATURE, CATEGORY_MEDITATION, "ocean", "waves", "beach"],
         layers=[
@@ -531,7 +531,7 @@ def _create_forest_wind() -> PresetConfig:
         description="Ormanda esen rüzgar simülasyonu. "
                     "Yaprakların hışırtısı ve dal sallanması. "
                     "Doğayla bağlantı hissi.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_NATURE, CATEGORY_AMBIENT, "forest", "wind", "leaves"],
         layers=[
@@ -608,7 +608,7 @@ def _create_space_ambient() -> PresetConfig:
         name="Space Ambient",
         description="Derin uzay ambiyansı. Yıldızlararası boşluk hissi. "
                     "Geniş, kaotik olmayan, meditatif ses manzarası.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_AMBIENT, CATEGORY_MEDITATION, "space", "cosmic", "ethereal"],
         layers=[
@@ -687,7 +687,7 @@ def _create_cafe_ambience() -> PresetConfig:
         description="Sakin bir kafe ortamı simülasyonu. "
                     "Arka plan uğultusu ve hafif aktivite sesleri. "
                     "Evden çalışanlar için sosyal ortam hissi.",
-        author="UltraGen",
+        author="xxxDSP",
         version="1.0",
         tags=[CATEGORY_PRODUCTIVITY, CATEGORY_AMBIENT, "cafe", "social", "work"],
         layers=[

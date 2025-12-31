@@ -1,7 +1,7 @@
 """
 v2_ml/feature_extraction.py
 
-UltraGen V2 Feature Extraction Pipeline
+xxxDSP V2 Feature Extraction Pipeline
 ----------------------------------------
 Referanslar:
 - docs/02_v2_theory/v2_feature_set.md (11 feature tanımları)

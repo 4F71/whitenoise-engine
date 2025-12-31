@@ -1,9 +1,9 @@
 """
 ui_app/ui_streamlit.py
 
-UltraGen / WhiteNoise Engine - Streamlit Web Arayüzü
+xxxDSP / xxxDSP Engine - Streamlit Web Arayüzü
 ====================================================
-Bu modül, UltraGen ses motorunu tarayıcı tabanlı bir arayüz üzerinden
+Bu modül, xxxDSP ses motorunu tarayıcı tabanlı bir arayüz üzerinden
 kullanmak için geliştirilmiştir. Hızlı prototipleme ve görsel test için idealdir.
 """
 
@@ -38,22 +38,31 @@ def convert_to_wav_bytes(audio_data: np.ndarray, sample_rate: int) -> bytes:
 
 def main():
     st.set_page_config(
-        page_title="UltraGen V1",
+        page_title="xxxDSP V1",
         page_icon="🌊",
         layout="centered"
     )
 
-    st.title("🌊 UltraGen / WhiteNoise Engine")
+    st.title("🌊 xxxDSP / xxxDSP Engine")
     st.markdown("Akademik DSP tabanlı, deterministik gürültü ve atmosfer üretici.")
     st.markdown("---")
 
     # 1. Kenar Çubuğu: Ayarlar
     st.sidebar.header("Yapılandırma")
 
+    # Preset Version Toggle
+    preset_version = st.sidebar.radio(
+        "Preset Versiyonu",
+        options=["V2 (102 ML-generated)", "V1 (14 handcrafted)"],
+        index=0
+    )
+    is_v2 = preset_version.startswith("V2")
+    st.sidebar.markdown("---")
+
     duration = st.sidebar.number_input(
         "Süre (Saniye)",
         min_value=1.0,
-        max_value=300.0,
+        max_value=36000.0,
         value=10.0,
         step=1.0
     )
@@ -64,25 +73,42 @@ def main():
         index=0
     )
 
-    use_variant = st.sidebar.checkbox("Otomatik Varyasyon Üret", value=False)
+    # Variant sadece V1'de göster
+    use_variant = False
     variant_intensity = 0.15
-    if use_variant:
-        variant_intensity = st.sidebar.slider("Varyasyon Şiddeti", 0.0, 0.5, 0.15)
+    if not is_v2:
+        use_variant = st.sidebar.checkbox("Otomatik Varyasyon Üret", value=False)
+        if use_variant:
+            variant_intensity = st.sidebar.slider("Varyasyon Şiddeti", 0.0, 0.5, 0.15)
 
     # 2. Preset Seçimi
     st.subheader("1. Preset Seçimi")
 
-    from preset_system.preset_library import list_v2_presets, get_v2_preset
-    v2_presets = list_v2_presets()
-    preset_names = [p["name"] for p in v2_presets]
+    if is_v2:
+        # V2: ML-generated presets
+        from preset_system.preset_library import list_v2_presets, get_v2_preset
+        v2_presets = list_v2_presets()
+        preset_names = [p["name"] for p in v2_presets]
 
-    selected_index = st.selectbox(
-        "V2 Preset Seç (102 ML-generated):",
-        range(len(v2_presets)),
-        format_func=lambda x: preset_names[x]
-    )
-    selected_preset = get_v2_preset(v2_presets[selected_index]["path"])
-    selected_preset_id = v2_presets[selected_index]["name"]
+        selected_index = st.selectbox(
+            "V2 Preset Seç (102 ML-generated):",
+            range(len(v2_presets)),
+            format_func=lambda x: preset_names[x]
+        )
+        selected_preset = get_v2_preset(v2_presets[selected_index]["path"])
+        selected_preset_id = v2_presets[selected_index]["name"]
+    else:
+        # V1: Handcrafted presets
+        from preset_system.preset_library import list_all_presets, get_preset
+        v1_preset_ids = list_all_presets()
+
+        selected_index = st.selectbox(
+            "V1 Preset Seç (14 handcrafted):",
+            range(len(v1_preset_ids)),
+            format_func=lambda x: v1_preset_ids[x]
+        )
+        selected_preset_id = v1_preset_ids[selected_index]
+        selected_preset = get_preset(selected_preset_id)
 
 
     with st.expander("Preset Detayları", expanded=True):
@@ -142,7 +168,8 @@ def main():
             wav_bytes = convert_to_wav_bytes(audio_data, sr)
             st.audio(wav_bytes, format="audio/wav")
 
-            file_name = f"ultragen_{selected_preset_id}_{int(time.time())}.wav"
+            version_prefix = "v2_" if is_v2 else "v1_"
+            file_name = f"xxxdsp_{version_prefix}{selected_preset_id}_{int(time.time())}.wav"
             st.download_button(
                 label="📥 WAV Olarak İndir",
                 data=wav_bytes,

@@ -1,4 +1,4 @@
-# UltraGen V2 — C2 Benchmark
+# xxxDSP V2 — C2 Benchmark
 # Sanity Gate Çarpma Oranı
 # Amaç: ML çıktılarının sanity gate tarafından ne sıklıkla clamp edildiğini ölçmek
 # Not: Model ve sanity gate siyah kutudur; burada tanımlanmaz veya değiştirilmez.
@@ -65,7 +65,7 @@ def sanity_gate_stats(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="UltraGen V2 C2 — Sanity Gate Çarpma Oranı"
+        description="xxxDSP V2 C2 — Sanity Gate Çarpma Oranı"
     )
     parser.add_argument(
         "--features",

@@ -1,4 +1,4 @@
-# UltraGen V2 — C2 Benchmark
+# xxxDSP V2 — C2 Benchmark
 # Leave-One-Out (LOO) Stabilite Testi
 # Amaç: Feature → parametre projeksiyonunun davranışsal stabilitesini ölçmek
 # Not: Model siyah kutudur; burada tanımlanmaz, eğitilmez veya seçilmez.
@@ -79,7 +79,7 @@ def loo_stability(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="UltraGen V2 C2 — Leave-One-Out Stabilite Testi"
+        description="xxxDSP V2 C2 — Leave-One-Out Stabilite Testi"
     )
     parser.add_argument(
         "--features",

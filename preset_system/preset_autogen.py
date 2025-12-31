@@ -1,7 +1,7 @@
 """
 preset_system/preset_autogen.py
 
-UltraGen / WhiteNoise Engine - Preset Varyasyon Motoru
+xxxDSP / xxxDSP Engine - Preset Varyasyon Motoru
 =====================================================
 Bu modül:
 - Mevcut bir preset'ten kontrollü, deterministik varyasyonlar üretir
