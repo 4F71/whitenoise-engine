@@ -28,8 +28,27 @@ except ImportError as e:
 
 
 def convert_to_wav_bytes(audio_data: np.ndarray, sample_rate: int) -> bytes:
-    """NumPy dizisini bellekte WAV formatına çevirir."""
+    """
+    NumPy dizisini bellekte WAV formatına çevirir.
+    
+    Peak normalization uygular (0.99 peak) ve 16-bit WAV'a dönüştürür.
+    
+    Args:
+        audio_data: Float audio array [-1.0, 1.0]
+        sample_rate: Sample rate (Hz)
+    
+    Returns:
+        WAV file bytes
+    """
+    # Peak normalization (clipping önleme için 0.99)
+    peak = np.max(np.abs(audio_data))
+    if peak > 0.0:
+        audio_data = (audio_data / peak) * 0.99
+    
+    # Safety clip
     audio_data = np.clip(audio_data, -1.0, 1.0)
+    
+    # 16-bit conversion
     scaled = (audio_data * 32767).astype(np.int16)
     virtual_file = io.BytesIO()
     wavfile.write(virtual_file, sample_rate, scaled)
@@ -59,13 +78,52 @@ def main():
     is_v2 = preset_version.startswith("V2")
     st.sidebar.markdown("---")
 
-    duration = st.sidebar.number_input(
-        "Süre (Saniye)",
-        min_value=1.0,
-        max_value=36000.0,
-        value=10.0,
-        step=1.0
-    )
+    # Duration Selection with Tabs
+    st.sidebar.markdown("**Süre Seçimi**")
+    
+    # Initialize session state
+    if 'duration_minutes' not in st.session_state:
+        st.session_state.duration_minutes = 10
+    if 'duration_hours' not in st.session_state:
+        st.session_state.duration_hours = 1
+    if 'duration_mode' not in st.session_state:
+        st.session_state.duration_mode = 'minutes'  # 'minutes' or 'hours'
+    
+    tab_minute, tab_hour = st.sidebar.tabs(["⏱️ Dakika", "⏰ Saat"])
+    
+    with tab_minute:
+        minutes = st.slider(
+            "Dakika Seç:", 
+            min_value=1, 
+            max_value=60, 
+            value=st.session_state.duration_minutes, 
+            step=1,
+            key="minutes_slider"
+        )
+        if minutes != st.session_state.duration_minutes:
+            st.session_state.duration_minutes = minutes
+            st.session_state.duration_mode = 'minutes'
+    
+    with tab_hour:
+        hours = st.slider(
+            "Saat Seç:", 
+            min_value=1, 
+            max_value=10, 
+            value=st.session_state.duration_hours, 
+            step=1,
+            key="hours_slider"
+        )
+        if hours != st.session_state.duration_hours:
+            st.session_state.duration_hours = hours
+            st.session_state.duration_mode = 'hours'
+    
+    # Calculate duration based on active mode
+    if st.session_state.duration_mode == 'minutes':
+        duration = st.session_state.duration_minutes * 60.0
+    else:
+        duration = st.session_state.duration_hours * 3600.0
+    
+    st.sidebar.markdown(f"**Seçilen:** {int(duration/60)} dakika ({int(duration)} saniye)")
 
     sr = st.sidebar.selectbox(
         "Örnekleme Hızı (Hz)",
@@ -85,18 +143,55 @@ def main():
     st.subheader("1. Preset Seçimi")
 
     if is_v2:
-        # V2: ML-generated presets
+        # V2: ML-generated presets (Nested: Category → Profile)
         from preset_system.preset_library import list_v2_presets, get_v2_preset
         v2_presets = list_v2_presets()
-        preset_names = [p["name"] for p in v2_presets]
-
-        selected_index = st.selectbox(
-            "V2 Preset Seç (102 ML-generated):",
-            range(len(v2_presets)),
-            format_func=lambda x: preset_names[x]
+        
+        # Extract unique categories (first part before "__")
+        categories = {}
+        for preset in v2_presets:
+            # Split by "__" and get first part as category
+            category = preset["name"].split("__")[0]
+            profile = preset["profile"]
+            
+            if category not in categories:
+                categories[category] = []
+            categories[category].append(preset)
+        
+        # Sort categories
+        sorted_categories = sorted(categories.keys())
+        
+        # Step 1: Category selection
+        selected_category = st.selectbox(
+            "1. Kategori Seç:",
+            sorted_categories,
+            format_func=lambda x: x.replace("_", " ").title()
         )
-        selected_preset = get_v2_preset(v2_presets[selected_index]["path"])
-        selected_preset_id = v2_presets[selected_index]["name"]
+        
+        # Step 2: Profile selection (filtered by category)
+        available_presets = categories[selected_category]
+        available_presets_sorted = sorted(available_presets, key=lambda x: x["profile"])
+        
+        # Profile labels
+        profile_labels = {
+            "P0": "Baseline",
+            "P1": "Soft",
+            "P2": "Dark",
+            "P3": "Calm",
+            "P4": "Airy",
+            "P5": "Dense"
+        }
+        
+        selected_profile_idx = st.selectbox(
+            "2. Profil Seç:",
+            range(len(available_presets_sorted)),
+            format_func=lambda x: f"{available_presets_sorted[x]['profile']} ({profile_labels[available_presets_sorted[x]['profile']]})"
+        )
+        
+        # Get final preset
+        selected_preset_dict = available_presets_sorted[selected_profile_idx]
+        selected_preset = get_v2_preset(selected_preset_dict["path"])
+        selected_preset_id = selected_preset_dict["name"]
     else:
         # V1: Handcrafted presets
         from preset_system.preset_library import list_all_presets, get_preset
