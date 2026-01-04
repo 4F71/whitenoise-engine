@@ -3,3 +3,5 @@ scipy>=1.13
 soundfile>=0.12      # WAV okuma/yazma için (pysoundfile)
 streamlit>=1.40  
 pytest
+numba>=0.58.0        # JIT compilation for 10-100x speedup
+cloudpickle>=2.2.0   # Pickle closures for multiprocessing
