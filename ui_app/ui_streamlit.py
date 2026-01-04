@@ -27,6 +27,25 @@ except ImportError as e:
     st.stop()
 
 
+def format_duration(duration_seconds: float) -> str:
+    """
+    Duration'ı saniyeden insan okunabilir formata çevirir.
+    
+    Args:
+        duration_seconds: Süre (saniye)
+    
+    Returns:
+        Formatlanmış string (örn: "1H", "30M", "10H")
+    """
+    minutes = int(duration_seconds / 60)
+    
+    if minutes >= 60:
+        hours = int(duration_seconds / 3600)
+        return f"{hours}H"
+    else:
+        return f"{minutes}M"
+
+
 def convert_to_wav_bytes(audio_data: np.ndarray, sample_rate: int) -> bytes:
     """
     NumPy dizisini bellekte WAV formatına çevirir.
@@ -263,8 +282,23 @@ def main():
             wav_bytes = convert_to_wav_bytes(audio_data, sr)
             st.audio(wav_bytes, format="audio/wav")
 
-            version_prefix = "v2_" if is_v2 else "v1_"
-            file_name = f"xxxdsp_{version_prefix}{selected_preset_id}_{int(time.time())}.wav"
+            # Generate filename based on version
+            duration_str = format_duration(duration)
+            
+            if is_v2:
+                # V2: <index>_<category>_<profile>_<duration>.wav
+                # Index: 1-6 per category (selected_profile_idx + 1)
+                index = str(selected_profile_idx + 1).zfill(3)
+                category = selected_category.lower()
+                profile = available_presets_sorted[selected_profile_idx]['profile'].lower()
+                file_name = f"{index}_{category}_{profile}_{duration_str}.wav"
+            else:
+                # V1: <index>_<preset_name>_<duration>.wav
+                # Index: 1-14 global (selected_index + 1)
+                index = str(selected_index + 1).zfill(3)
+                preset_name = selected_preset_id.lower()
+                file_name = f"{index}_{preset_name}_{duration_str}.wav"
+            
             st.download_button(
                 label="📥 WAV Olarak İndir",
                 data=wav_bytes,
