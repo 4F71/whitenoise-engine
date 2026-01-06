@@ -11,7 +11,11 @@ user/
 referans/
 v2_dataset/
 noise_app_first_draft/
-docs/
+
+docs/*
+
+!docs/00_overview/
+!docs/00_overview/**
 
 
 v2_ml/data/

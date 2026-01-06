@@ -1,6 +1,8 @@
 """
 ui_app/ui_streamlit.py
 
+` streamlit run ui_app/ui_streamlit.py ` komutu ile çalıştırılır.
+
 xxxDSP / xxxDSP Engine - Streamlit Web Arayüzü
 ====================================================
 Bu modül, xxxDSP ses motorunu tarayıcı tabanlı bir arayüz üzerinden
