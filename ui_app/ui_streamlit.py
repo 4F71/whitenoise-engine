@@ -93,77 +93,445 @@ def main():
     # Preset Version Toggle
     preset_version = st.sidebar.radio(
         "Preset Versiyonu",
-        options=["V2 (102 ML-generated)", "V1 (14 handcrafted)"],
+        options=["V2 (102 ML-generated)", "V1 (14 handcrafted)", "V2.5 (Pure Binaural Beats)"],
         index=0
     )
-    is_v2 = preset_version.startswith("V2")
+    is_v2 = preset_version.startswith("V2") and not preset_version.startswith("V2.5")
+    is_v1 = preset_version.startswith("V1")
+    is_binaural_only = preset_version.startswith("V2.5")
     st.sidebar.markdown("---")
 
-    # Duration Selection with Tabs
-    st.sidebar.markdown("**Süre Seçimi**")
-    
-    # Initialize session state
-    if 'duration_minutes' not in st.session_state:
-        st.session_state.duration_minutes = 10
-    if 'duration_hours' not in st.session_state:
-        st.session_state.duration_hours = 1
-    if 'duration_mode' not in st.session_state:
-        st.session_state.duration_mode = 'minutes'  # 'minutes' or 'hours'
-    
-    tab_minute, tab_hour = st.sidebar.tabs(["⏱️ Dakika", "⏰ Saat"])
-    
-    with tab_minute:
-        minutes = st.slider(
-            "Dakika Seç:", 
-            min_value=1, 
-            max_value=60, 
-            value=st.session_state.duration_minutes, 
-            step=1,
-            key="minutes_slider"
-        )
-        if minutes != st.session_state.duration_minutes:
-            st.session_state.duration_minutes = minutes
-            st.session_state.duration_mode = 'minutes'
-    
-    with tab_hour:
-        hours = st.slider(
-            "Saat Seç:", 
-            min_value=1, 
-            max_value=10, 
-            value=st.session_state.duration_hours, 
-            step=1,
-            key="hours_slider"
-        )
-        if hours != st.session_state.duration_hours:
-            st.session_state.duration_hours = hours
-            st.session_state.duration_mode = 'hours'
-    
-    # Calculate duration based on active mode
-    if st.session_state.duration_mode == 'minutes':
-        duration = st.session_state.duration_minutes * 60.0
+    # Duration Selection with Tabs (V2.5 hariç)
+    if not is_binaural_only:
+        st.sidebar.markdown("**Süre Seçimi**")
+        
+        # Initialize session state
+        if 'duration_minutes' not in st.session_state:
+            st.session_state.duration_minutes = 10
+        if 'duration_hours' not in st.session_state:
+            st.session_state.duration_hours = 1
+        if 'duration_mode' not in st.session_state:
+            st.session_state.duration_mode = 'minutes'  # 'minutes' or 'hours'
+        
+        tab_minute, tab_hour = st.sidebar.tabs(["⏱️ Dakika", "⏰ Saat"])
+        
+        with tab_minute:
+            minutes = st.slider(
+                "Dakika Seç:", 
+                min_value=1, 
+                max_value=60, 
+                value=st.session_state.duration_minutes, 
+                step=1,
+                key="minutes_slider"
+            )
+            if minutes != st.session_state.duration_minutes:
+                st.session_state.duration_minutes = minutes
+                st.session_state.duration_mode = 'minutes'
+        
+        with tab_hour:
+            hours = st.slider(
+                "Saat Seç:", 
+                min_value=1, 
+                max_value=10, 
+                value=st.session_state.duration_hours, 
+                step=1,
+                key="hours_slider"
+            )
+            if hours != st.session_state.duration_hours:
+                st.session_state.duration_hours = hours
+                st.session_state.duration_mode = 'hours'
+        
+        # Calculate duration based on active mode
+        if st.session_state.duration_mode == 'minutes':
+            duration = st.session_state.duration_minutes * 60.0
+        else:
+            duration = st.session_state.duration_hours * 3600.0
+        
+        st.sidebar.markdown(f"**Seçilen:** {int(duration/60)} dakika ({int(duration)} saniye)")
     else:
-        duration = st.session_state.duration_hours * 3600.0
-    
-    st.sidebar.markdown(f"**Seçilen:** {int(duration/60)} dakika ({int(duration)} saniye)")
+        # V2.5: Binaural-specific duration recommendations
+        st.sidebar.markdown("**Süre Seçimi (Binaural Önerilen)**")
+        duration_preset = st.sidebar.selectbox(
+            "Öneri Seç:",
+            options=[
+                "3 dakika (Test)",
+                "5 dakika (Alpha - Minimum)",
+                "10 dakika (Theta - Optimal)",
+                "20 dakika (Gamma - Minimum)",
+                "30 dakika (Gamma - Optimal)",
+                "60 dakika (Deep Session)"
+            ],
+            index=2  # Default: 10 dakika
+        )
+        
+        duration_map = {
+            "3 dakika (Test)": 180.0,
+            "5 dakika (Alpha - Minimum)": 300.0,
+            "10 dakika (Theta - Optimal)": 600.0,
+            "20 dakika (Gamma - Minimum)": 1200.0,
+            "30 dakika (Gamma - Optimal)": 1800.0,
+            "60 dakika (Deep Session)": 3600.0
+        }
+        
+        duration = duration_map[duration_preset]
+        st.sidebar.markdown(f"**Seçilen:** {int(duration/60)} dakika")
 
     sr = st.sidebar.selectbox(
         "Örnekleme Hızı (Hz)",
         options=[44100, 48000],
-        index=0
+        index=1  # Default: 48000
     )
 
     # Variant sadece V1'de göster
     use_variant = False
     variant_intensity = 0.15
-    if not is_v2:
+    if is_v1:
         use_variant = st.sidebar.checkbox("Otomatik Varyasyon Üret", value=False)
         if use_variant:
             variant_intensity = st.sidebar.slider("Varyasyon Şiddeti", 0.0, 0.5, 0.15)
+    
+    st.sidebar.markdown("---")
+    
+    # Binaural Beats Section
+    if is_binaural_only:
+        # V2.5: Binaural always enabled, advanced controls
+        st.sidebar.markdown("**🎧 Binaural Beats Parametreleri**")
+        st.sidebar.info("⚠️ Kulaklık kullanımı ZORUNLU!")
+        
+        # Preset recommendations
+        binaural_preset = st.sidebar.selectbox(
+            "Preset Seç:",
+            options=[
+                "Theta (7 Hz) - Meditation",
+                "Alpha (10 Hz) - Relaxation", 
+                "Gamma (40 Hz) - Focus",
+                "Delta (4 Hz) - Deep Sleep",
+                "--- Solfeggio Frequencies ---",
+                "432Hz Universe Harmony",
+                "528Hz Love Frequency",
+                "639Hz Connection",
+                "741Hz Intuition",
+                "852Hz Spiritual Order",
+                "963Hz Third Eye",
+                "Custom"
+            ],
+            index=0  # Default: Theta
+        )
+        
+        if binaural_preset == "Theta (7 Hz) - Meditation":
+            carrier_freq = 400.0
+            beat_freq = 7.0
+            binaural_amplitude = 0.5
+            st.sidebar.success("✅ Priority #1: En çok araştırılmış")
+            st.sidebar.caption("Önerilen süre: 10 dakika\nKullanım: Meditasyon, derin rahatlama")
+        elif binaural_preset == "Alpha (10 Hz) - Relaxation":
+            carrier_freq = 400.0
+            beat_freq = 10.0
+            binaural_amplitude = 0.5
+            st.sidebar.success("✅ Priority #2: Kısa sürede etkili")
+            st.sidebar.caption("Önerilen süre: 5 dakika\nKullanım: Rahatlamış uyanıklık, odaklanma")
+        elif binaural_preset == "Gamma (40 Hz) - Focus":
+            carrier_freq = 250.0
+            beat_freq = 40.0
+            binaural_amplitude = 0.5
+            st.sidebar.warning("⚡ Experimental: Uzun süre gerekli")
+            st.sidebar.caption("Önerilen süre: 20-30 dakika\nKullanım: Yoğun konsantrasyon")
+        elif binaural_preset == "Delta (4 Hz) - Deep Sleep":
+            carrier_freq = 400.0
+            beat_freq = 4.0
+            binaural_amplitude = 0.5
+            st.sidebar.info("🌙 Experimental: Derin uyku")
+            st.sidebar.caption("Önerilen süre: 5-10 dakika\nUyarı: <3 Hz kullanmayın!")
+        elif binaural_preset == "--- Solfeggio Frequencies ---":
+            # Separator - revert to Theta
+            carrier_freq = 400.0
+            beat_freq = 7.0
+            binaural_amplitude = 0.5
+            st.sidebar.warning("⚠️ Lütfen bir preset seçin")
+        elif binaural_preset == "432Hz Universe Harmony":
+            carrier_freq = 432.0
+            beat_freq = 8.0
+            binaural_amplitude = 0.5
+            st.sidebar.info("🎵 Solfeggio: Universe frequency")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐⭐⭐\nÖnerilen: 10 dakika | Alpha meditation")
+        elif binaural_preset == "528Hz Love Frequency":
+            carrier_freq = 528.0
+            beat_freq = 4.0
+            binaural_amplitude = 0.5
+            st.sidebar.info("❤️ Solfeggio: Love & DNA repair")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐⭐⭐ (En popüler!)\nÖnerilen: 10 dakika | Theta healing")
+        elif binaural_preset == "639Hz Connection":
+            carrier_freq = 639.0
+            beat_freq = 10.0
+            binaural_amplitude = 0.45
+            st.sidebar.info("🤝 Solfeggio: Relationships")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐⭐\nÖnerilen: 10 dakika | Alpha connection")
+        elif binaural_preset == "741Hz Intuition":
+            carrier_freq = 741.0
+            beat_freq = 7.0
+            binaural_amplitude = 0.45
+            st.sidebar.info("🧠 Solfeggio: Awakening intuition")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐⭐\nÖnerilen: 10 dakika | Theta creativity")
+        elif binaural_preset == "852Hz Spiritual Order":
+            carrier_freq = 852.0
+            beat_freq = 8.0
+            binaural_amplitude = 0.4
+            st.sidebar.info("✨ Solfeggio: Spiritual awakening")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐\nÖnerilen: 10 dakika | Alpha spiritual")
+        elif binaural_preset == "963Hz Third Eye":
+            carrier_freq = 963.0
+            beat_freq = 10.0
+            binaural_amplitude = 0.4
+            st.sidebar.info("👁️ Solfeggio: Third eye activation")
+            st.sidebar.caption("Pseudo-science | YouTube: ⭐⭐⭐⭐⭐\nÖnerilen: 10 dakika | Alpha awakening")
+        else:  # Custom
+            carrier_freq = st.sidebar.number_input(
+                "Carrier Frequency (Hz)",
+                min_value=100.0,
+                max_value=500.0,
+                value=400.0,
+                step=10.0,
+                help="Taşıyıcı frekans (100-500 Hz). Optimal: 400 Hz"
+            )
+            beat_freq = st.sidebar.number_input(
+                "Beat Frequency (Hz)",
+                min_value=3.0,
+                max_value=50.0,
+                value=10.0,
+                step=0.5,
+                help="Beat frekansı (3-50 Hz). Theta: 4-8, Alpha: 8-13, Gamma: 38-42"
+            )
+            binaural_amplitude = st.sidebar.slider(
+                "Amplitude",
+                min_value=0.1,
+                max_value=1.0,
+                value=0.5,
+                step=0.1,
+                help="Genlik (0.1-1.0). Optimal: 0.5"
+            )
+            
+            # Danger zone warnings
+            if beat_freq < 3.0:
+                st.sidebar.error("⚠️ <3 Hz: Rotating tone - Rahatsız edici!")
+            elif 13.0 <= beat_freq <= 30.0:
+                st.sidebar.warning("⚠️ Beta band (13-30 Hz): Hiçbir kanıt yok!")
+            elif beat_freq > 50.0:
+                st.sidebar.warning("⚠️ >50 Hz: Beat algısı kaybolur!")
+        
+        # Optional: Pink noise background
+        st.sidebar.markdown("---")
+        st.sidebar.info("⚠️ Pink noise render süresi uzatır (Python loop overhead)")
+        add_pink_noise = st.sidebar.checkbox("Pink Noise Arka Plan Ekle", value=False)
+        pink_noise_gain = 0.0
+        if add_pink_noise:
+            pink_noise_gain = st.sidebar.slider(
+                "Pink Noise Gain",
+                min_value=0.1,
+                max_value=0.5,
+                value=0.2,
+                step=0.05,
+                help="Arka plan pink noise seviyesi"
+            )
+            st.sidebar.caption("📝 Not: Render süresi ~2-3x daha uzun olacak (8M+ iterasyon)")
+            st.sidebar.caption("💡 Öneri: Pure binaural beats (checkbox kapalı) daha hızlı")
+        
+        enable_binaural = True  # Always enabled in V2.5
+        
+    else:
+        # V1/V2: Optional binaural addon
+        st.sidebar.markdown("**🎧 Binaural Beats (Opsiyonel)**")
+        enable_binaural = st.sidebar.checkbox("Binaural Beats Ekle", value=False)
+        
+        carrier_freq = 200.0
+        beat_freq = 10.0
+        binaural_amplitude = 0.5
+        add_pink_noise = False
+        pink_noise_gain = 0.0
+        
+        if enable_binaural:
+            st.sidebar.info("⚠️ Kulaklık kullanımı ZORUNLU!")
+            
+            # Preset recommendations (V2.5 ile aynı liste)
+            binaural_preset = st.sidebar.selectbox(
+                "Preset Seç:",
+                options=[
+                    "Theta (7 Hz) - Meditation",
+                    "Alpha (10 Hz) - Relaxation",
+                    "Gamma (40 Hz) - Focus",
+                    "Delta (4 Hz) - Deep Sleep",
+                    "--- Solfeggio Frequencies ---",
+                    "432Hz Universe Harmony",
+                    "528Hz Love Frequency",
+                    "639Hz Connection",
+                    "741Hz Intuition",
+                    "852Hz Spiritual Order",
+                    "963Hz Third Eye",
+                    "Custom"
+                ],
+                index=0  # Default: Theta
+            )
+            
+            if binaural_preset == "Theta (7 Hz) - Meditation":
+                carrier_freq = 400.0
+                beat_freq = 7.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("Priority #1: En çok araştırılmış (10 dk önerilen)")
+            elif binaural_preset == "Alpha (10 Hz) - Relaxation":
+                carrier_freq = 400.0
+                beat_freq = 10.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("Priority #2: Kısa sürede etkili (5 dk yeterli)")
+            elif binaural_preset == "Gamma (40 Hz) - Focus":
+                carrier_freq = 250.0
+                beat_freq = 40.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("Experimental: Uzun süre gerekli (20+ dk)")
+            elif binaural_preset == "Delta (4 Hz) - Deep Sleep":
+                carrier_freq = 400.0
+                beat_freq = 4.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("Experimental: Derin uyku (5-10 dk)")
+            elif binaural_preset == "--- Solfeggio Frequencies ---":
+                # Separator - keep defaults
+                carrier_freq = 400.0
+                beat_freq = 7.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("⬇️ Lütfen bir Solfeggio preset seçin")
+            elif binaural_preset == "432Hz Universe Harmony":
+                carrier_freq = 432.0
+                beat_freq = 8.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("🎵 Solfeggio | YouTube: ⭐⭐⭐⭐⭐")
+            elif binaural_preset == "528Hz Love Frequency":
+                carrier_freq = 528.0
+                beat_freq = 4.0
+                binaural_amplitude = 0.5
+                st.sidebar.caption("❤️ Solfeggio | YouTube: ⭐⭐⭐⭐⭐ (En popüler!)")
+            elif binaural_preset == "639Hz Connection":
+                carrier_freq = 639.0
+                beat_freq = 10.0
+                binaural_amplitude = 0.45
+                st.sidebar.caption("🤝 Solfeggio | YouTube: ⭐⭐⭐⭐")
+            elif binaural_preset == "741Hz Intuition":
+                carrier_freq = 741.0
+                beat_freq = 7.0
+                binaural_amplitude = 0.45
+                st.sidebar.caption("🧠 Solfeggio | YouTube: ⭐⭐⭐⭐")
+            elif binaural_preset == "852Hz Spiritual Order":
+                carrier_freq = 852.0
+                beat_freq = 8.0
+                binaural_amplitude = 0.4
+                st.sidebar.caption("✨ Solfeggio | YouTube: ⭐⭐⭐")
+            elif binaural_preset == "963Hz Third Eye":
+                carrier_freq = 963.0
+                beat_freq = 10.0
+                binaural_amplitude = 0.4
+                st.sidebar.caption("👁️ Solfeggio | YouTube: ⭐⭐⭐⭐⭐")
+            else:  # Custom
+                carrier_freq = st.sidebar.number_input(
+                    "Carrier Frequency (Hz)",
+                    min_value=100.0,
+                    max_value=1200.0,
+                    value=200.0,
+                    step=10.0,
+                    help="Taşıyıcı frekans (100-1200 Hz). Optimal: 200-400 Hz"
+                )
+                beat_freq = st.sidebar.number_input(
+                    "Beat Frequency (Hz)",
+                    min_value=3.0,
+                    max_value=50.0,
+                    value=10.0,
+                    step=0.5,
+                    help="Beat frekansı (3-50 Hz). Theta: 4-8, Alpha: 8-13, Gamma: 38-42"
+                )
+                binaural_amplitude = st.sidebar.slider(
+                    "Amplitude",
+                    min_value=0.1,
+                    max_value=1.0,
+                    value=0.5,
+                    step=0.1,
+                    help="Genlik (0.1-1.0). Optimal: 0.3-0.6"
+                )
+                
+                # Danger zone warnings
+                if beat_freq < 3.0:
+                    st.sidebar.error("⚠️ <3 Hz: Rotating tone - Rahatsız edici!")
+                elif 13.0 <= beat_freq <= 30.0:
+                    st.sidebar.warning("⚠️ Beta band (13-30 Hz): Hiçbir kanıt yok!")
+                elif beat_freq > 50.0:
+                    st.sidebar.warning("⚠️ >50 Hz: Beat algısı kaybolur!")
 
     # 2. Preset Seçimi
     st.subheader("1. Preset Seçimi")
 
-    if is_v2:
+    if is_binaural_only:
+        # V2.5: Pure Binaural Beats (no preset selection)
+        st.info(
+            "🎧 **V2.5 - Pure Binaural Beats Mode**\n\n"
+            "Bu modda sadece binaural beats üretilir.\n"
+            "- Stereo output (2 kanal)\n"
+            "- Akademik araştırmalara dayalı parametreler\n"
+            "- Kulaklık kullanımı zorunlu\n\n"
+            f"**Seçili Preset:** {binaural_preset}\n"
+            f"**Carrier:** {carrier_freq} Hz | **Beat:** {beat_freq} Hz | **Amplitude:** {binaural_amplitude}"
+        )
+        
+        if add_pink_noise:
+            st.caption(f"🌸 Pink noise arka plan eklendi (gain: {pink_noise_gain})")
+        
+        # Create dummy preset for rendering
+        from preset_system.preset_schema import PresetConfig, LayerConfig, BinauralConfig
+        
+        if add_pink_noise:
+            # Pink noise layer
+            selected_preset = PresetConfig(
+                name=f"V2.5 Pure Binaural - {binaural_preset}",
+                description=f"Pure binaural beats at {beat_freq} Hz with pink noise background",
+                author="xxxDSP Engine V2.5",
+                version="2.5",
+                tags=["binaural", "v2.5", "pure"],
+                layers=[
+                    LayerConfig(
+                        name="Pink Noise Background",
+                        enabled=True,
+                        noise_type="pink",
+                        gain=pink_noise_gain,
+                        pan=0.0
+                    )
+                ],
+                binaural_config=BinauralConfig(
+                    enabled=True,
+                    carrier_freq=carrier_freq,
+                    beat_freq=beat_freq,
+                    amplitude=binaural_amplitude
+                ),
+                master_gain=0.8,
+                duration_sec=duration,
+                sample_rate=sr
+            )
+        else:
+            # Pure binaural only (no layers)
+            selected_preset = PresetConfig(
+                name=f"V2.5 Pure Binaural - {binaural_preset}",
+                description=f"Pure binaural beats at {beat_freq} Hz (no background)",
+                author="xxxDSP Engine V2.5",
+                version="2.5",
+                tags=["binaural", "v2.5", "pure"],
+                layers=[],  # No layers
+                binaural_config=BinauralConfig(
+                    enabled=True,
+                    carrier_freq=carrier_freq,
+                    beat_freq=beat_freq,
+                    amplitude=binaural_amplitude
+                ),
+                master_gain=0.8,
+                duration_sec=duration,
+                sample_rate=sr
+            )
+        
+        selected_preset_id = f"v2.5_binaural_{int(beat_freq)}hz"
+        
+    elif is_v2:
         # V2: ML-generated presets (Nested: Category → Profile)
         from preset_system.preset_library import list_v2_presets, get_v2_preset
         v2_presets = list_v2_presets()
@@ -172,7 +540,8 @@ def main():
         categories = {}
         for preset in v2_presets:
             # Split by "__" and get first part as category
-            category = preset["name"].split("__")[0]
+            name_parts = preset["name"].split("__")
+            category = name_parts[0]
             profile = preset["profile"]
             
             if category not in categories:
@@ -227,17 +596,27 @@ def main():
         selected_preset = get_preset(selected_preset_id)
 
 
-    with st.expander("Preset Detayları", expanded=True):
-        st.markdown(f"**ID:** `{selected_preset_id}`")
-        st.markdown(f"**Açıklama:** {selected_preset.description}")
-        st.markdown(f"**Etiketler:** {', '.join(selected_preset.tags)}")
+    # Preset Detayları
+    if not is_binaural_only:
+        with st.expander("Preset Detayları", expanded=True):
+            st.markdown(f"**ID:** `{selected_preset_id}`")
+            st.markdown(f"**Açıklama:** {selected_preset.description}")
+            st.markdown(f"**Etiketler:** {', '.join(selected_preset.tags)}")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Katman Sayısı", len(selected_preset.layers))
-        with col2:
-            rev_mix = float(selected_preset.fx_config.reverb_mix)
-            st.metric("Reverb", f"%{int(rev_mix * 100)}")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Katman Sayısı", len(selected_preset.layers))
+            with col2:
+                rev_mix = float(selected_preset.fx_config.reverb_mix)
+                st.metric("Reverb", f"%{int(rev_mix * 100)}")
+            with col3:
+                if enable_binaural:
+                    st.metric("Binaural", "✅ Aktif")
+                else:
+                    st.metric("Binaural", "❌ Kapalı")
+    else:
+        # V2.5: Binaural info already shown above
+        pass
 
     # 3. Render
     st.markdown("---")
@@ -250,7 +629,7 @@ def main():
         try:
             render_config = selected_preset
 
-            if use_variant:
+            if use_variant and is_v1:
                 status_text.text("Varyasyon hesaplanıyor...")
                 render_config = preset_autogen.generate_variant(
                     selected_preset,
@@ -258,24 +637,96 @@ def main():
                     suffix="Streamlit"
                 )
                 time.sleep(0.5)
+            
+            # Binaural beats config ekle (eğer V1/V2'de aktifse)
+            if enable_binaural and not is_binaural_only:
+                from preset_system.preset_schema import BinauralConfig
+                render_config.binaural_config = BinauralConfig(
+                    enabled=True,
+                    carrier_freq=carrier_freq,
+                    beat_freq=beat_freq,
+                    amplitude=binaural_amplitude
+                )
+                status_text.text(f"Binaural beats ekleniyor... ({beat_freq} Hz)")
+                time.sleep(0.3)
 
             status_text.text(f"DSP Motoru Çalışıyor... ({duration} sn)")
             progress_bar.progress(30)
 
             start_time = time.time()
 
-            # === DEBUG FIX: Preset → Adapter → DSP ===
-            generators = adapt_preset_to_layer_generators(render_config)
-
-            audio_data = dsp_render.render_sound(
-                generators,
-                duration_sec=duration,
-                sample_rate=sr
-            )
+            # === BINAURAL SUPPORT: Check if binaural is enabled ===
+            result = adapt_preset_to_layer_generators(render_config)
+            
+            if isinstance(result, tuple):
+                # Binaural aktif - stereo rendering
+                layer_gens, binaural_gen = result
+                
+                status_text.text("Mono layer'lar render ediliyor...")
+                progress_bar.progress(50)
+                
+                # Render mono layers
+                if len(layer_gens) > 0:
+                    print(f"[DEBUG] Rendering {len(layer_gens)} mono layers (duration={duration}s)...")
+                    
+                    # Pink noise warning (çok yavaş)
+                    if is_binaural_only and add_pink_noise:
+                        status_text.text(f"Pink noise render ediliyor... ({int(duration)}s, ~{int(duration*2)}s sürebilir)")
+                    
+                    # CRITICAL: Pink noise için multiprocessing kullanma (Windows pickle + Python loop overhead)
+                    use_mp = not (is_binaural_only and add_pink_noise)
+                    
+                    mono_audio = dsp_render.render_sound(
+                        layer_gens,
+                        duration_sec=duration,
+                        sample_rate=sr,
+                        use_multiprocessing=use_mp
+                    )
+                    print(f"[DEBUG] Mono audio rendered: shape={mono_audio.shape}, dtype={mono_audio.dtype}")
+                    
+                    # Convert to stereo (duplicate channels)
+                    stereo_layers = np.stack([mono_audio, mono_audio], axis=1)
+                    print(f"[DEBUG] Stereo layers created: shape={stereo_layers.shape}")
+                else:
+                    print(f"[DEBUG] No layers, creating zero stereo buffer...")
+                    stereo_layers = np.zeros((int(duration * sr), 2), dtype=np.float32)
+                    print(f"[DEBUG] Zero stereo buffer: shape={stereo_layers.shape}")
+                
+                status_text.text("Binaural beats render ediliyor...")
+                progress_bar.progress(75)
+                
+                # Render binaural (stereo)
+                print(f"[DEBUG] Rendering binaural beats...")
+                binaural_audio = binaural_gen(duration, sr)
+                print(f"[DEBUG] Binaural audio rendered: shape={binaural_audio.shape}, dtype={binaural_audio.dtype}")
+                
+                status_text.text("Mixing: Layers + Binaural...")
+                progress_bar.progress(90)
+                
+                # Mix stereo
+                print(f"[DEBUG] Mixing stereo_layers + binaural_audio...")
+                audio_data = stereo_layers + binaural_audio
+                print(f"[DEBUG] Mix complete: shape={audio_data.shape}, dtype={audio_data.dtype}")
+                
+            else:
+                # Binaural yok - normal mono rendering
+                layer_gens = result
+                audio_data = dsp_render.render_sound(
+                    layer_gens,
+                    duration_sec=duration,
+                    sample_rate=sr
+                )
 
             elapsed = time.time() - start_time
             progress_bar.progress(100)
-            status_text.success(f"Tamamlandı! ({elapsed:.2f}s)")
+            
+            # Channel info
+            if audio_data.ndim == 2:
+                channel_info = f"Stereo ({audio_data.shape[1]} kanal)"
+            else:
+                channel_info = "Mono"
+            
+            status_text.success(f"Tamamlandı! ({elapsed:.2f}s) - {channel_info}")
 
             # 4. Sonuç
             st.markdown("---")
@@ -287,19 +738,36 @@ def main():
             # Generate filename based on version
             duration_str = format_duration(duration)
             
-            if is_v2:
+            if is_binaural_only:
+                # V2.5: binaural_<preset>_<beat_freq>hz_<duration>.wav
+                preset_name = binaural_preset.lower().replace(" ", "_").replace("(", "").replace(")", "").replace("-", "")
+                if add_pink_noise:
+                    file_name = f"binaural_{preset_name}_{int(beat_freq)}hz_{duration_str}_pink.wav"
+                else:
+                    file_name = f"binaural_{preset_name}_{int(beat_freq)}hz_{duration_str}.wav"
+            elif is_v2:
                 # V2: <index>_<category>_<profile>_<duration>.wav
                 # Index: 1-6 per category (selected_profile_idx + 1)
                 index = str(selected_profile_idx + 1).zfill(3)
                 category = selected_category.lower()
                 profile = available_presets_sorted[selected_profile_idx]['profile'].lower()
-                file_name = f"{index}_{category}_{profile}_{duration_str}.wav"
+                
+                # Add binaural suffix if enabled
+                if enable_binaural:
+                    file_name = f"{index}_{category}_{profile}_{duration_str}_binaural_{int(beat_freq)}hz.wav"
+                else:
+                    file_name = f"{index}_{category}_{profile}_{duration_str}.wav"
             else:
                 # V1: <index>_<preset_name>_<duration>.wav
                 # Index: 1-14 global (selected_index + 1)
                 index = str(selected_index + 1).zfill(3)
                 preset_name = selected_preset_id.lower()
-                file_name = f"{index}_{preset_name}_{duration_str}.wav"
+                
+                # Add binaural suffix if enabled
+                if enable_binaural:
+                    file_name = f"{index}_{preset_name}_{duration_str}_binaural_{int(beat_freq)}hz.wav"
+                else:
+                    file_name = f"{index}_{preset_name}_{duration_str}.wav"
             
             st.download_button(
                 label="📥 WAV Olarak İndir",
@@ -308,6 +776,29 @@ def main():
                 mime="audio/wav",
                 use_container_width=True
             )
+            
+            # Binaural info
+            if enable_binaural or is_binaural_only:
+                band_info = ""
+                if 3.0 <= beat_freq < 4.0:
+                    band_info = "Delta (Derin uyku)"
+                elif 4.0 <= beat_freq < 8.0:
+                    band_info = "Theta (Meditasyon)"
+                elif 8.0 <= beat_freq < 13.0:
+                    band_info = "Alpha (Rahatlama)"
+                elif 13.0 <= beat_freq < 30.0:
+                    band_info = "Beta (Dikkat - kanıt yok!)"
+                elif 30.0 <= beat_freq <= 50.0:
+                    band_info = "Gamma (Yoğun odaklanma)"
+                
+                st.info(
+                    f"🎧 **Binaural Beats Aktif:**\n"
+                    f"- Band: {band_info}\n"
+                    f"- Carrier: {carrier_freq} Hz\n"
+                    f"- Beat: {beat_freq} Hz\n"
+                    f"- Amplitude: {binaural_amplitude}\n\n"
+                    f"⚠️ **KULAKLIK KULLANIN!** Hoparlörde çalışmaz."
+                )
 
         except Exception as e:
             st.error(f"Render sırasında hata oluştu: {e}")

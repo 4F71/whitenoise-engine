@@ -14,11 +14,11 @@ Sorumluluk sınırı:
 - Render çağrısı İÇERMEZ
 """
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from preset_system.preset_schema import PresetConfig, LayerConfig, FilterConfig, LfoConfig
+from preset_system.preset_schema import PresetConfig, LayerConfig, FilterConfig, LfoConfig, BinauralConfig
 from core_dsp.dsp_noise import (
     generate_white_noise,
     generate_pink_noise,
@@ -26,7 +26,7 @@ from core_dsp.dsp_noise import (
     generate_blue_noise,
     generate_violet_noise,
 )
-from core_dsp import dsp_filters, dsp_lfo
+from core_dsp import dsp_filters, dsp_lfo, dsp_binaural
 
 
 # =============================================================================
@@ -35,6 +35,7 @@ from core_dsp import dsp_filters, dsp_lfo
 
 AudioBuffer = NDArray[np.float32]
 LayerGenerator = Callable[[float, int], AudioBuffer]
+BinauralGenerator = Callable[[float, int], AudioBuffer]  # Returns stereo (N, 2)
 
 
 # =============================================================================
@@ -126,13 +127,62 @@ def _create_layer_generator(
     return generator
 
 
+def _create_binaural_generator(
+    binaural_config: BinauralConfig
+) -> BinauralGenerator:
+    """
+    Binaural beats için generator fonksiyonu oluşturur.
+    
+    Args:
+        binaural_config: Binaural beats yapılandırması
+        
+    Returns:
+        (duration_sec, sample_rate) -> Stereo AudioBuffer (N, 2) imzalı Callable
+        
+    Notes:
+        - STEREO output döndürür (shape: N × 2)
+        - Sol kanal: carrier_freq
+        - Sağ kanal: carrier_freq + beat_freq
+        - Kulaklık kullanımı zorunlu
+    """
+    carrier = binaural_config.carrier_freq
+    beat = binaural_config.beat_freq
+    amplitude = binaural_config.amplitude
+    
+    def generator(duration_sec: float, sample_rate: int) -> AudioBuffer:
+        """
+        Stereo binaural beats üretir.
+        
+        Args:
+            duration_sec: Süre (saniye)
+            sample_rate: Örnekleme hızı (Hz)
+            
+        Returns:
+            Stereo float32 audio buffer (N × 2)
+        """
+        stereo = dsp_binaural.generate_binaural_beats(
+            carrier_freq=carrier,
+            beat_freq=beat,
+            amplitude=amplitude,
+            duration_sec=duration_sec,
+            sample_rate=sample_rate
+        )
+        
+        # Fade uygula (click önleme)
+        stereo = dsp_binaural.apply_fade(stereo, fade_duration=2.0, sample_rate=sample_rate)
+        
+        return stereo
+    
+    return generator
+
+
 # =============================================================================
 # ANA FONKSİYON
 # =============================================================================
 
 def adapt_preset_to_layer_generators(
     preset: PresetConfig
-) -> list[LayerGenerator]:
+) -> Union[list[LayerGenerator], tuple[list[LayerGenerator], Optional[BinauralGenerator]]]:
     """
     PresetConfig nesnesinden render_sound uyumlu generator listesi üretir.
     
@@ -141,25 +191,37 @@ def adapt_preset_to_layer_generators(
     - noise_type string'ini ilgili DSP fonksiyonuna eşler
     - gain değerini sinyal çarpanı olarak uygular
     - filter (lowpass/highpass) ve LFO (amplitude/filter) işler
+    - Binaural beats (enabled ise) ayrı generator olarak döndürür
     - V1 noise, gain, filter ve LFO içerir. Pan desteği V2'de eklenecektir.
     
     Args:
         preset: Dönüştürülecek preset yapılandırması
         
     Returns:
-        render_sound fonksiyonuna geçirilebilecek
-        List[Callable[[float, int], np.ndarray]] formatında generator listesi
+        Eğer binaural_config.enabled == False:
+            List[LayerGenerator] - Mono layer generator'ları
+        Eğer binaural_config.enabled == True:
+            Tuple[List[LayerGenerator], BinauralGenerator]
+            - [0]: Mono layer generator'ları
+            - [1]: Stereo binaural generator
         
     Raises:
         ValueError: Geçersiz noise_type içeren katman varsa
         
     Example:
+        >>> # Mono (sadece noise layers)
         >>> preset = get_preset("deep_focus")
         >>> generators = adapt_preset_to_layer_generators(preset)
         >>> audio = render_sound(generators, duration_sec=60.0, sample_rate=48000)
+        
+        >>> # Stereo (noise layers + binaural beats)
+        >>> preset_binaural = get_preset("theta_meditation_binaural")
+        >>> layer_gens, binaural_gen = adapt_preset_to_layer_generators(preset_binaural)
+        >>> # Manuel mixing required for binaural
     """
     generators: list[LayerGenerator] = []
     
+    # Layer'ları işle
     for layer in preset.layers:
         if not layer.enabled:
             continue
@@ -173,7 +235,13 @@ def adapt_preset_to_layer_generators(
         
         generators.append(generator)
     
-    return generators
+    # Binaural beats kontrolü
+    if preset.binaural_config and preset.binaural_config.enabled:
+        # Binaural generator oluştur
+        binaural_gen = _create_binaural_generator(preset.binaural_config)
+        return (generators, binaural_gen)
+    else:
+        return generators
 
 
 def get_supported_noise_types() -> list[str]:
@@ -337,7 +405,11 @@ if __name__ == "__main__":
         name="Stateless Test",
         layers=[LayerConfig(noise_type="pink", gain=0.5, enabled=True)],
     )
-    gen = adapt_preset_to_layer_generators(stateless_preset)[0]
+    result = adapt_preset_to_layer_generators(stateless_preset)
+    
+    # Binaural yok, direkt list dönmeli
+    assert isinstance(result, list), "Binaural yokken list dönmeli"
+    gen = result[0]
     
     audio1 = gen(0.01, 48000)
     audio2 = gen(0.01, 48000)
@@ -346,6 +418,75 @@ if __name__ == "__main__":
     assert audio1.shape == audio2.shape
     assert audio3.shape[0] == int(0.01 * 44100)
     print("  Birden fazla çağrı başarılı: [OK]")
+    
+    # Test 9: Binaural beats (YENİ)
+    print("\n[TEST 9] Binaural Beats")
+    from preset_system.preset_schema import BinauralConfig
+    
+    binaural_preset = PresetConfig(
+        name="Theta Meditation Binaural",
+        layers=[
+            LayerConfig(noise_type="pink", gain=0.3, enabled=True),
+        ],
+        binaural_config=BinauralConfig(
+            enabled=True,
+            carrier_freq=200.0,
+            beat_freq=7.0,
+            amplitude=0.5
+        )
+    )
+    
+    result = adapt_preset_to_layer_generators(binaural_preset)
+    
+    # Binaural var, tuple dönmeli
+    assert isinstance(result, tuple), "Binaural varken tuple dönmeli"
+    assert len(result) == 2, "Tuple 2 elemanlı olmalı"
+    
+    layer_gens, binaural_gen = result
+    
+    assert isinstance(layer_gens, list), "İlk eleman list olmalı"
+    assert len(layer_gens) == 1, "1 layer var"
+    
+    # Layer test (mono)
+    layer_audio = layer_gens[0](0.1, 48000)
+    assert layer_audio.ndim == 1, "Layer mono olmalı"
+    assert layer_audio.shape[0] == int(0.1 * 48000)
+    
+    # Binaural test (stereo)
+    binaural_audio = binaural_gen(0.1, 48000)
+    assert binaural_audio.ndim == 2, "Binaural stereo olmalı"
+    assert binaural_audio.shape == (int(0.1 * 48000), 2)
+    
+    # Sol ve sağ kanal farklı olmalı (beat için)
+    assert not np.allclose(binaural_audio[:, 0], binaural_audio[:, 1]), \
+        "Binaural kanallar farklı olmalı"
+    
+    print(f"  Layer shape: {layer_audio.shape} (mono)")
+    print(f"  Binaural shape: {binaural_audio.shape} (stereo)")
+    print("  [OK]")
+    
+    # Test 10: Binaural only (layer yok)
+    print("\n[TEST 10] Binaural Only (no layers)")
+    binaural_only = PresetConfig(
+        name="Pure Binaural",
+        layers=[],  # Boş
+        binaural_config=BinauralConfig(
+            enabled=True,
+            carrier_freq=200.0,
+            beat_freq=10.0,
+            amplitude=0.5
+        )
+    )
+    
+    result = adapt_preset_to_layer_generators(binaural_only)
+    assert isinstance(result, tuple)
+    layer_gens, binaural_gen = result
+    assert len(layer_gens) == 0, "Layer yok"
+    
+    binaural_audio = binaural_gen(0.05, 48000)
+    assert binaural_audio.shape == (int(0.05 * 48000), 2)
+    print(f"  Binaural shape: {binaural_audio.shape}")
+    print("  [OK]")
     
     print("\n" + "=" * 50)
     print("Tüm testler başarılı!")
