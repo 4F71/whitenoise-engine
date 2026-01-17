@@ -140,6 +140,53 @@ class FxConfig:
 
 
 @dataclass
+class BinauralConfig:
+    """
+    Binaural beats yapılandırması.
+    
+    Binaural beats, iki kulağa farklı frekanslarda ses verildiğinde
+    beyinde algılanan üçüncü bir sestir (beat). Örneğin:
+    - Sol kulak: 200 Hz
+    - Sağ kulak: 207 Hz
+    - Algılanan beat: 7 Hz (theta band)
+    
+    Attributes:
+        enabled: Binaural beats aktif mi
+        carrier_freq: Taşıyıcı frekans (Hz)
+            - Optimal: 200-400 Hz (Goodin 2012)
+            - Range: 100-1200 Hz (Extended for Solfeggio frequencies)
+            - Solfeggio: 432, 528, 639, 741, 852, 963 Hz (pseudo-science)
+        beat_freq: Beat frekansı (Hz)
+            - Delta: 3-4 Hz (Alt limit: 3 Hz)
+            - Theta: 4-8 Hz (Priority #1)
+            - Alpha: 8-13 Hz (Priority #2)
+            - Gamma: 38-42 Hz (Experimental)
+        amplitude: Genlik (0.0 - 1.0)
+            - Optimal: 0.3-0.6 (comfortable listening)
+    
+    Notes:
+        - STEREO output gereklidir (binaural mekanizma iki kulak gerektirir)
+        - Kulaklık kullanımı şart (hoparlör çalışmaz)
+        - Danger zones: <3 Hz, 13-30 Hz (beta band), >50 Hz
+    
+    Referanslar:
+        - Oster (1973): "Auditory Beats in the Brain"
+        - Ingendoh et al. (2023): Sistematik derleme
+        - docs/02_v2_theory/binaural_beats_theory.md
+    """
+    enabled: bool = False
+    carrier_freq: float = 200.0
+    beat_freq: float = 10.0
+    amplitude: float = 0.5
+    
+    def __post_init__(self) -> None:
+        """Alan değerlerini doğrula ve sınırla."""
+        self.carrier_freq = max(100.0, min(1200.0, self.carrier_freq))  # Extended for Solfeggio (963Hz)
+        self.beat_freq = max(0.5, min(50.0, self.beat_freq))
+        self.amplitude = max(0.0, min(1.0, self.amplitude))
+
+
+@dataclass
 class LayerConfig:
     """
     Tek bir ses katmanı yapılandırması.
@@ -190,6 +237,7 @@ class PresetConfig:
         layers: Ses katmanları listesi
         master_gain: Ana çıkış kazancı (0.0 - 1.0)
         fx_config: Efekt zinciri ayarları
+        binaural_config: Binaural beats ayarları (opsiyonel)
         duration_sec: Varsayılan süre (saniye)
         sample_rate: Örnekleme hızı (Hz)
         seed: Rastgelelik için seed (None ise rastgele)
@@ -202,6 +250,7 @@ class PresetConfig:
     layers: list[LayerConfig] = field(default_factory=list)
     master_gain: float = 0.8
     fx_config: FxConfig = field(default_factory=FxConfig)
+    binaural_config: Optional[BinauralConfig] = None
     duration_sec: float = 60.0
     sample_rate: int = 48000
     seed: Optional[int] = None
@@ -215,6 +264,10 @@ class PresetConfig:
         # Dict olarak geldiyse dönüştür
         if isinstance(self.fx_config, dict):
             self.fx_config = FxConfig(**self.fx_config)
+        
+        # Binaural config dönüştür
+        if isinstance(self.binaural_config, dict):
+            self.binaural_config = BinauralConfig(**self.binaural_config)
         
         # Katmanları dönüştür
         converted_layers: list[LayerConfig] = []
