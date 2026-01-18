@@ -17,7 +17,8 @@ docs/*
 preset_system/v2_presets/
 !docs/00_overview/
 !docs/00_overview/**
-
+test_renders/
+preset_system/presets
 
 v2_ml/data/
 v2_ml/models/
