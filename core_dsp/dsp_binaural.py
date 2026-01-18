@@ -129,7 +129,8 @@ def generate_binaural_beats(
     beat_freq: float,
     amplitude: float,
     duration_sec: float,
-    sample_rate: int
+    sample_rate: int,
+    breathing_lfo: np.ndarray = None
 ) -> FloatArray:
     """
     Stereo binaural beat sinyali üretir.
@@ -256,17 +257,28 @@ def generate_binaural_beats(
     # Zaman vektörü oluştur (float64 - hassasiyet için)
     t = np.arange(samples, dtype=np.float64) / sample_rate
     
-    # Sol kanal: carrier frekansı
+    # Breathing LFO (V2.7+): Carrier frequency modulation
+    # LFO range: [-1, 1], modulate carrier_freq by ±3% (natural breathing feel)
+    if breathing_lfo is not None and len(breathing_lfo) == samples:
+        # Modulation depth: ±3% of carrier frequency (subtle but perceptible)
+        modulated_carrier_left = carrier_freq * (1.0 + 0.03 * breathing_lfo)
+        modulated_carrier_right = (carrier_freq + beat_freq) * (1.0 + 0.03 * breathing_lfo)
+    else:
+        # No breathing: constant carrier frequency
+        modulated_carrier_left = carrier_freq
+        modulated_carrier_right = carrier_freq + beat_freq
+    
+    # Sol kanal: carrier frekansı (with optional breathing)
     # Phase başlangıcı 0 (alignment için kritik)
     left_channel = amplitude * np.sin(
-        2.0 * math.pi * carrier_freq * t,
+        2.0 * math.pi * modulated_carrier_left * t,
         dtype=np.float64
     )
     
-    # Sağ kanal: carrier + beat frekansı
+    # Sağ kanal: carrier + beat frekansı (with optional breathing)
     # Phase başlangıcı 0 (alignment için kritik)
     right_channel = amplitude * np.sin(
-        2.0 * math.pi * (carrier_freq + beat_freq) * t,
+        2.0 * math.pi * modulated_carrier_right * t,
         dtype=np.float64
     )
     
