@@ -18,7 +18,14 @@ from typing import Callable, Optional, Union
 import numpy as np
 from numpy.typing import NDArray
 
-from preset_system.preset_schema import PresetConfig, LayerConfig, FilterConfig, LfoConfig, BinauralConfig
+from preset_system.preset_schema import (
+    PresetConfig,
+    LayerConfig,
+    FilterConfig,
+    LfoConfig,
+    BinauralConfig,
+    OrganicTextureConfig
+)
 from core_dsp.dsp_noise import (
     generate_white_noise,
     generate_pink_noise,
@@ -27,6 +34,7 @@ from core_dsp.dsp_noise import (
     generate_violet_noise,
 )
 from core_dsp import dsp_filters, dsp_lfo, dsp_binaural
+from scipy.signal import butter, lfilter
 
 
 # =============================================================================
@@ -59,7 +67,8 @@ def _create_layer_generator(
     noise_type: str,
     gain: float,
     filter_config: Optional[FilterConfig] = None,
-    lfo_config: Optional[LfoConfig] = None
+    lfo_config: Optional[LfoConfig] = None,
+    preset_seed: int = None
 ) -> LayerGenerator:
     """
     Tek bir katman için generator fonksiyonu oluşturur.
@@ -93,12 +102,11 @@ def _create_layer_generator(
         Returns:
             float32 audio buffer
         """
-        # === DEBUG FIX ===
-        # DSP noise fonksiyonları num_samples değil
-        # (duration_sec, sample_rate) bekler
+        # Generate noise with seed for reproducibility (V2.7+)
         audio = noise_func(
             duration_sec=duration_sec,
             sample_rate=sample_rate,
+            seed=preset_seed
         )
         
         # Gain uygula
@@ -127,14 +135,173 @@ def _create_layer_generator(
     return generator
 
 
+def _create_organic_texture_generator(
+    organic_config: OrganicTextureConfig,
+    preset_seed: int = None
+) -> LayerGenerator:
+    """
+    Organic texture generator (sub-bass + air layers).
+    
+    Theory: organic_texture_theory.md Section 4
+    
+    Args:
+        organic_config: Organic texture configuration
+        preset_seed: Seed for reproducibility
+        
+    Returns:
+        Callable that generates composite organic texture (mono)
+        
+    Notes:
+        - Sub-bass: Brown noise LP @ 80Hz, -12dB, perlin LFO
+        - Air: White noise HP @ 4kHz, -18dB, perlin LFO
+        - Returns mono signal (multi-band composite)
+    """
+    def generator(duration_sec: float, sample_rate: int) -> AudioBuffer:
+        """Generate organic texture."""
+        output = np.zeros(int(duration_sec * sample_rate), dtype=np.float32)
+        
+        # === SUB-BASS LAYER (20-80 Hz) ===
+        if organic_config.sub_bass_enabled:
+            # Generate brown noise (with seed for consistency)
+            brown = generate_brown_noise(
+                duration_sec=duration_sec,
+                sample_rate=sample_rate,
+                seed=preset_seed + 4000 if preset_seed else None
+            )
+            
+            # === MICRO-MODULATION (Anti-Robotic) ===
+            # Ultra-slow evolution (0.001 Hz = 1000s cycle) for "rumble" character
+            micro_lfo = dsp_lfo.perlin_modulated_lfo(
+                rate_hz=0.001,  # Extremely slow (natural earth rumble feel)
+                duration_sec=duration_sec,
+                sample_rate=sample_rate,
+                mod_amount=0.4,
+                seed=preset_seed + 5000 if preset_seed else None
+            )
+            brown = dsp_lfo.apply_volume_lfo(brown, micro_lfo, depth=0.05)  # Very subtle (5%)
+            
+            # Butterworth filters (4th order)
+            nyquist = 0.5 * sample_rate
+            
+            # Low-pass filter @ 80 Hz
+            lp_cutoff_norm = organic_config.sub_bass_lp_cutoff_hz / nyquist
+            b_lp, a_lp = butter(4, lp_cutoff_norm, btype='low', analog=False)
+            brown = lfilter(b_lp, a_lp, brown)
+            
+            # High-pass filter @ 20 Hz (rumble only)
+            hp_cutoff_norm = organic_config.sub_bass_hp_cutoff_hz / nyquist
+            b_hp, a_hp = butter(4, hp_cutoff_norm, btype='high', analog=False)
+            brown = lfilter(b_hp, a_hp, brown)
+            
+            # Extra gentle LP @ 60Hz for smoothness (reduce "boom" character)
+            smooth_cutoff_norm = 60.0 / nyquist
+            b_smooth, a_smooth = butter(2, smooth_cutoff_norm, btype='low', analog=False)
+            brown = lfilter(b_smooth, a_smooth, brown)
+            
+            # Apply gain (dB to linear)
+            gain_linear = 10 ** (organic_config.sub_bass_gain_db / 20.0)
+            brown = brown * gain_linear
+            
+            # LFO modulation (main breathing)
+            if organic_config.sub_bass_lfo_type == "perlin_modulated":
+                lfo_signal = dsp_lfo.perlin_modulated_lfo(
+                    rate_hz=organic_config.sub_bass_lfo_rate_hz,
+                    duration_sec=duration_sec,
+                    sample_rate=sample_rate,
+                    mod_amount=organic_config.sub_bass_lfo_mod_amount,
+                    seed=preset_seed
+                )
+            else:
+                lfo_signal = dsp_lfo.sine_lfo(
+                    rate_hz=organic_config.sub_bass_lfo_rate_hz,
+                    duration_sec=duration_sec,
+                    sample_rate=sample_rate
+                )
+            
+            brown = dsp_lfo.apply_volume_lfo(brown, lfo_signal, organic_config.sub_bass_lfo_depth)
+            
+            output = output + brown
+        
+        # === AIR LAYER (4-8 kHz) ===
+        if organic_config.air_enabled:
+            # Generate white noise (with seed for consistency)
+            white = generate_white_noise(
+                duration_sec=duration_sec,
+                sample_rate=sample_rate,
+                seed=preset_seed + 2000 if preset_seed else None
+            )
+            
+            # === MICRO-MODULATION (Anti-Robotic) ===
+            # Apply ultra-slow amplitude variation (0.002 Hz = 500s cycle)
+            # Makes white noise less "static" and more "living"
+            micro_lfo = dsp_lfo.perlin_modulated_lfo(
+                rate_hz=0.002,  # Very slow evolution
+                duration_sec=duration_sec,
+                sample_rate=sample_rate,
+                mod_amount=0.3,
+                seed=preset_seed + 3000 if preset_seed else None
+            )
+            white = dsp_lfo.apply_volume_lfo(white, micro_lfo, depth=0.03)  # Very subtle (3%)
+            
+            nyquist = 0.5 * sample_rate
+            
+            # High-pass filter @ 4 kHz
+            hp_cutoff_norm = organic_config.air_hp_cutoff_hz / nyquist
+            b_hp, a_hp = butter(4, hp_cutoff_norm, btype='high', analog=False)
+            white = lfilter(b_hp, a_hp, white)
+            
+            # Low-pass filter @ 8 kHz (band limit)
+            lp_cutoff_norm = organic_config.air_lp_cutoff_hz / nyquist
+            b_lp, a_lp = butter(4, lp_cutoff_norm, btype='low', analog=False)
+            white = lfilter(b_lp, a_lp, white)
+            
+            # Soft rolloff @ 6kHz (reduce harshness)
+            # 2nd order gentle LP to smooth high-freq "edges"
+            soft_cutoff_norm = 6000.0 / nyquist
+            b_soft, a_soft = butter(2, soft_cutoff_norm, btype='low', analog=False)
+            white = lfilter(b_soft, a_soft, white)
+            
+            # Apply gain (dB to linear)
+            gain_linear = 10 ** (organic_config.air_gain_db / 20.0)
+            white = white * gain_linear
+            
+            # LFO modulation (main breathing)
+            if organic_config.air_lfo_type == "perlin_modulated":
+                lfo_signal = dsp_lfo.perlin_modulated_lfo(
+                    rate_hz=organic_config.air_lfo_rate_hz,
+                    duration_sec=duration_sec,
+                    sample_rate=sample_rate,
+                    mod_amount=organic_config.air_lfo_mod_amount,
+                    seed=preset_seed + 1000 if preset_seed else None  # Different seed
+                )
+            else:
+                lfo_signal = dsp_lfo.sine_lfo(
+                    rate_hz=organic_config.air_lfo_rate_hz,
+                    duration_sec=duration_sec,
+                    sample_rate=sample_rate
+                )
+            
+            white = dsp_lfo.apply_volume_lfo(white, lfo_signal, organic_config.air_lfo_depth)
+            
+            output = output + white
+        
+        return output.astype(np.float32)
+    
+    return generator
+
+
 def _create_binaural_generator(
-    binaural_config: BinauralConfig
+    binaural_config: BinauralConfig,
+    preset_seed: int = None
 ) -> BinauralGenerator:
     """
     Binaural beats için generator fonksiyonu oluşturur.
     
+    V2.7+: Organic breathing efekti eklendi (perlin-modulated LFO)
+    
     Args:
         binaural_config: Binaural beats yapılandırması
+        preset_seed: Seed for reproducibility
         
     Returns:
         (duration_sec, sample_rate) -> Stereo AudioBuffer (N, 2) imzalı Callable
@@ -143,6 +310,7 @@ def _create_binaural_generator(
         - STEREO output döndürür (shape: N × 2)
         - Sol kanal: carrier_freq
         - Sağ kanal: carrier_freq + beat_freq
+        - Breathing efekti: 100s cycle (0.01 Hz perlin LFO)
         - Kulaklık kullanımı zorunlu
     """
     carrier = binaural_config.carrier_freq
@@ -151,7 +319,7 @@ def _create_binaural_generator(
     
     def generator(duration_sec: float, sample_rate: int) -> AudioBuffer:
         """
-        Stereo binaural beats üretir.
+        Stereo binaural beats üretir (with breathing effect).
         
         Args:
             duration_sec: Süre (saniye)
@@ -160,12 +328,26 @@ def _create_binaural_generator(
         Returns:
             Stereo float32 audio buffer (N × 2)
         """
+        # === BREATHING LFO (V2.7+) ===
+        # Perlin-modulated LFO for "living" binaural beats
+        # 100s cycle (0.01 Hz) with ±20% frequency variation
+        # This modulates CARRIER FREQUENCY (not amplitude)
+        breathing_lfo = dsp_lfo.perlin_modulated_lfo(
+            rate_hz=0.01,  # 100 second cycle
+            duration_sec=duration_sec,
+            sample_rate=sample_rate,
+            mod_amount=0.2,  # ±20% LFO frequency variation
+            seed=preset_seed
+        )
+        
+        # Generate binaural beats WITH breathing (carrier freq modulation)
         stereo = dsp_binaural.generate_binaural_beats(
             carrier_freq=carrier,
             beat_freq=beat,
             amplitude=amplitude,
             duration_sec=duration_sec,
-            sample_rate=sample_rate
+            sample_rate=sample_rate,
+            breathing_lfo=breathing_lfo  # ±3% carrier freq modulation
         )
         
         # Fade uygula (click önleme)
@@ -230,15 +412,27 @@ def adapt_preset_to_layer_generators(
             noise_type=layer.noise_type,
             gain=layer.gain,
             filter_config=layer.filter_config,
-            lfo_config=layer.lfo_config
+            lfo_config=layer.lfo_config,
+            preset_seed=preset.seed  # V2.7+: Reproducibility
         )
         
         generators.append(generator)
     
+    # Organic texture ekle (V2.7+)
+    if preset.organic_texture_config and preset.organic_texture_config.enabled:
+        organic_generator = _create_organic_texture_generator(
+            preset.organic_texture_config,
+            preset_seed=preset.seed
+        )
+        generators.append(organic_generator)
+    
     # Binaural beats kontrolü
     if preset.binaural_config and preset.binaural_config.enabled:
-        # Binaural generator oluştur
-        binaural_gen = _create_binaural_generator(preset.binaural_config)
+        # Binaural generator oluştur (with breathing effect V2.7+)
+        binaural_gen = _create_binaural_generator(
+            preset.binaural_config,
+            preset_seed=preset.seed
+        )
         return (generators, binaural_gen)
     else:
         return generators
