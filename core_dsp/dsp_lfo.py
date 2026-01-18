@@ -131,6 +131,92 @@ def _rms(signal: FloatArray) -> float:
     return float(np.sqrt(np.mean(x * x, dtype=_FT)))
 
 
+def perlin_modulated_lfo(
+    rate_hz: float,
+    duration_sec: float,
+    sample_rate: int,
+    mod_amount: float = 0.1,
+    seed: int = None
+) -> FloatArray:
+    """
+    Perlin noise modulated sine LFO - organic breathing effect.
+    
+    Theory: organic_texture_theory.md Section 2.2
+    
+    Irregular breathing cycle: LFO frequency modulated by smoothed random walk.
+    This creates "living, breathing" effect - each cycle slightly different.
+    
+    Args:
+        rate_hz: Base LFO frequency (Hz), e.g. 0.005-0.01 Hz
+        duration_sec: Duration (seconds)
+        sample_rate: Sample rate (Hz)
+        mod_amount: Modulation depth [0.0-1.0], 0.1 = ±10% frequency variation
+        seed: Random seed for reproducibility (None = random)
+        
+    Returns:
+        Float32 LFO vector [-1..1]
+        
+    Example:
+        >>> # 100s breathing cycle with ±10% variation
+        >>> lfo = perlin_modulated_lfo(0.01, 180, 48000, mod_amount=0.1, seed=42)
+        >>> # Each cycle will be 90-110s (slightly different)
+    
+    Reference:
+        Perlin, Ken. "Improving noise." SIGGRAPH 2002
+        organic_texture_theory.md Section 2.2.1-2.2.3
+    """
+    samples = int(round(duration_sec * sample_rate))
+    if samples <= 0:
+        return np.zeros(0, dtype=_FT)
+    
+    # Parameter validation
+    rate_hz = max(0.001, min(20.0, rate_hz))
+    mod_amount = float(np.clip(mod_amount, 0.0, 1.0))
+    
+    # Seed RNG
+    rng = np.random.RandomState(seed)
+    
+    # === Simplified Perlin Noise (Smoothed Random Walk) ===
+    # Theory: Section 1.3 - Wavelet noise approximation
+    # We use smoothed random walk instead of full Perlin for efficiency
+    
+    # Perlin update rate: ~10x slower than LFO base freq (for smooth modulation)
+    perlin_update_samples = max(1, int(sample_rate / (rate_hz * 10)))
+    num_perlin_points = (samples // perlin_update_samples) + 2
+    
+    # Generate random walk
+    random_walk = rng.randn(num_perlin_points).astype(np.float64)
+    
+    # Cumulative sum for smooth evolution
+    random_walk = np.cumsum(random_walk)
+    
+    # Normalize to [-1, 1]
+    if random_walk.std() > 0:
+        random_walk = (random_walk - random_walk.mean()) / (random_walk.std() * 3.0)
+        random_walk = np.clip(random_walk, -1.0, 1.0)
+    
+    # Interpolate to audio rate (cubic interpolation for smoothness)
+    perlin_time = np.arange(num_perlin_points, dtype=np.float64)
+    audio_time = np.linspace(0, num_perlin_points - 1, samples, dtype=np.float64)
+    perlin_signal = np.interp(audio_time, perlin_time, random_walk).astype(_FT)
+    
+    # === Frequency Modulation ===
+    # f_inst(t) = f_base * (1 + mod_amount * perlin(t))
+    # Theory: Section 2.2.1
+    
+    instantaneous_freq = rate_hz * (1.0 + mod_amount * perlin_signal)
+    
+    # === Phase Accumulation ===
+    # Integrate frequency to get phase
+    phase_increment = instantaneous_freq / float(sample_rate)
+    phase = np.cumsum(phase_increment, dtype=np.float64)
+    
+    # === Sine LFO Output ===
+    output = np.sin(2.0 * np.pi * phase, dtype=np.float64).astype(_FT)
+    
+    return output
+
+
 if __name__ == "__main__":
     fs = 48000
     duration = 1.0

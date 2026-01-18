@@ -187,6 +187,101 @@ class BinauralConfig:
 
 
 @dataclass
+class OrganicTextureConfig:
+    """
+    Organic texture layer configuration (V2.7+).
+    
+    Adds sub-bass rumble and air presence layers for YouTube-ready ambient sounds.
+    Reduces monotony through multi-band depth and perlin-modulated LFO.
+    
+    Theory: docs/02_v2_theory/organic_texture_theory.md
+    
+    Attributes:
+        enabled: Organic texture aktif mi
+        
+        Sub-Bass Layer (20-80 Hz):
+            sub_bass_enabled: Sub-bass rumble aktif mi
+            sub_bass_noise_type: Brown noise (recommended)
+            sub_bass_lp_cutoff_hz: Low-pass cutoff (80 Hz recommended)
+            sub_bass_hp_cutoff_hz: High-pass cutoff (20 Hz recommended)
+            sub_bass_gain_db: Gain in dB (-12 dB recommended)
+            sub_bass_lfo_rate_hz: LFO rate (0.005-0.01 Hz for breathing)
+            sub_bass_lfo_type: "sine" or "perlin_modulated"
+            sub_bass_lfo_depth: LFO modulation depth (0.0-1.0)
+            sub_bass_lfo_mod_amount: Perlin mod amount (0.1 = ±10% freq variation)
+            
+        Air Layer (4-8 kHz):
+            air_enabled: Air presence aktif mi
+            air_noise_type: White noise (recommended)
+            air_hp_cutoff_hz: High-pass cutoff (4000 Hz recommended)
+            air_lp_cutoff_hz: Low-pass cutoff (8000 Hz recommended)
+            air_gain_db: Gain in dB (-18 dB recommended)
+            air_lfo_rate_hz: LFO rate (0.003-0.01 Hz)
+            air_lfo_type: "sine" or "perlin_modulated"
+            air_lfo_depth: LFO modulation depth (0.0-1.0)
+            air_lfo_mod_amount: Perlin mod amount
+    
+    Example:
+        >>> config = OrganicTextureConfig(
+        ...     enabled=True,
+        ...     sub_bass_lfo_type="perlin_modulated",
+        ...     air_lfo_type="perlin_modulated"
+        ... )
+    
+    Reference:
+        organic_texture_theory.md Section 4.1 (Sub-Bass), 4.2 (Air)
+    """
+    enabled: bool = False
+    
+    # Sub-Bass Layer (20-80 Hz rumble)
+    sub_bass_enabled: bool = True
+    sub_bass_noise_type: str = "brown"
+    sub_bass_lp_cutoff_hz: float = 80.0
+    sub_bass_hp_cutoff_hz: float = 20.0
+    sub_bass_gain_db: float = -12.0
+    sub_bass_lfo_rate_hz: float = 0.008
+    sub_bass_lfo_type: str = "perlin_modulated"
+    sub_bass_lfo_depth: float = 0.08
+    sub_bass_lfo_mod_amount: float = 0.1
+    
+    # Air Layer (4-8 kHz presence)
+    air_enabled: bool = True
+    air_noise_type: str = "white"
+    air_hp_cutoff_hz: float = 4000.0
+    air_lp_cutoff_hz: float = 8000.0
+    air_gain_db: float = -18.0
+    air_lfo_rate_hz: float = 0.003
+    air_lfo_type: str = "perlin_modulated"
+    air_lfo_depth: float = 0.05
+    air_lfo_mod_amount: float = 0.1
+    
+    def __post_init__(self) -> None:
+        """Validate and clamp parameters."""
+        # Sub-bass validation
+        self.sub_bass_lp_cutoff_hz = max(20.0, min(200.0, self.sub_bass_lp_cutoff_hz))
+        self.sub_bass_hp_cutoff_hz = max(10.0, min(50.0, self.sub_bass_hp_cutoff_hz))
+        self.sub_bass_gain_db = max(-24.0, min(0.0, self.sub_bass_gain_db))
+        self.sub_bass_lfo_rate_hz = max(0.001, min(0.02, self.sub_bass_lfo_rate_hz))
+        self.sub_bass_lfo_depth = max(0.0, min(1.0, self.sub_bass_lfo_depth))
+        self.sub_bass_lfo_mod_amount = max(0.0, min(1.0, self.sub_bass_lfo_mod_amount))
+        
+        # Air validation
+        self.air_hp_cutoff_hz = max(2000.0, min(6000.0, self.air_hp_cutoff_hz))
+        self.air_lp_cutoff_hz = max(6000.0, min(12000.0, self.air_lp_cutoff_hz))
+        self.air_gain_db = max(-24.0, min(0.0, self.air_gain_db))
+        self.air_lfo_rate_hz = max(0.001, min(0.02, self.air_lfo_rate_hz))
+        self.air_lfo_depth = max(0.0, min(1.0, self.air_lfo_depth))
+        self.air_lfo_mod_amount = max(0.0, min(1.0, self.air_lfo_mod_amount))
+        
+        # LFO type validation
+        valid_lfo_types = ["sine", "perlin_modulated"]
+        if self.sub_bass_lfo_type not in valid_lfo_types:
+            self.sub_bass_lfo_type = "sine"
+        if self.air_lfo_type not in valid_lfo_types:
+            self.air_lfo_type = "sine"
+
+
+@dataclass
 class LayerConfig:
     """
     Tek bir ses katmanı yapılandırması.
@@ -251,6 +346,7 @@ class PresetConfig:
     master_gain: float = 0.8
     fx_config: FxConfig = field(default_factory=FxConfig)
     binaural_config: Optional[BinauralConfig] = None
+    organic_texture_config: Optional[OrganicTextureConfig] = None
     duration_sec: float = 60.0
     sample_rate: int = 48000
     seed: Optional[int] = None
@@ -268,6 +364,10 @@ class PresetConfig:
         # Binaural config dönüştür
         if isinstance(self.binaural_config, dict):
             self.binaural_config = BinauralConfig(**self.binaural_config)
+        
+        # Organic texture config dönüştür
+        if isinstance(self.organic_texture_config, dict):
+            self.organic_texture_config = OrganicTextureConfig(**self.organic_texture_config)
         
         # Katmanları dönüştür
         converted_layers: list[LayerConfig] = []
