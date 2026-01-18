@@ -337,8 +337,70 @@ def main():
         
         enable_binaural = True  # Always enabled in V2.5
         
-    else:
+    # Initialize organic texture variables (default disabled for V2.5)
+    # Theory reference: organic_texture_theory.md Section 4.1-4.2
+    enable_organic = False
+    organic_preset = "Theory"
+    sub_bass_gain_db = -15.0  # More conservative (was -9, too deep)
+    air_gain_db = -18.0        # Theory recommended
+    sub_bass_lfo_depth = 0.12  # Reduced from 0.2 (less aggressive)
+    air_lfo_depth = 0.08       # Reduced from 0.15 (more subtle)
+    lfo_mod_amount = 0.25      # Moderate variation (was 0.3)
+    
+    if not is_binaural_only:
+        # === ORGANIC TEXTURE (V2.7+) ===
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("**🌿 Organic Texture (V2.7) - YouTube Ready**")
+        st.sidebar.caption("Sub-bass rumble + Air presence + Irregular breathing")
+        
+        enable_organic = st.sidebar.checkbox("Organic Texture Ekle", value=True, help="Sub-bass (20-80Hz) ve air (4-8kHz) katmanları + Perlin-modulated breathing")
+        
+        if enable_organic:
+            organic_preset = st.sidebar.radio(
+                "Preset",
+                options=["Subtle", "Theory (Recommended)", "Enhanced"],
+                index=1,
+                help="Subtle: Minimal organic texture\nTheory: Academic reference (organic_texture_theory.md)\nEnhanced: More presence, healthy balance"
+            )
+            
+            if organic_preset == "Subtle":
+                # Minimal organic presence
+                sub_bass_gain_db = -18.0
+                air_gain_db = -21.0
+                sub_bass_lfo_depth = 0.06
+                air_lfo_depth = 0.04
+                lfo_mod_amount = 0.15
+                st.sidebar.info("🔇 Minimal presence - Ultra subtle")
+            elif organic_preset == "Theory (Recommended)":
+                # Academic reference: organic_texture_theory.md Section 4
+                # Sub-bass: -12dB (Section 4.1.2), Air: -18dB (Section 4.2.2)
+                # LFO: Moderate depth for breathing without overpowering
+                sub_bass_gain_db = -15.0  # Conservative (theory: -12, but adjusted for health)
+                air_gain_db = -18.0       # Theory baseline
+                sub_bass_lfo_depth = 0.12
+                air_lfo_depth = 0.08
+                lfo_mod_amount = 0.25
+                st.sidebar.success("✅ Theory-based healthy balance")
+            else:  # Enhanced
+                # More presence but still healthy
+                sub_bass_gain_db = -12.0  # Theory baseline
+                air_gain_db = -15.0       # Slightly more air
+                sub_bass_lfo_depth = 0.18
+                air_lfo_depth = 0.12
+                lfo_mod_amount = 0.35
+                st.sidebar.info("🌊 Enhanced presence - Still healthy")
+            
+            # Advanced controls (expandable)
+            with st.sidebar.expander("🔧 Advanced Parameters"):
+                sub_bass_gain_db = st.slider("Sub-Bass Gain (dB)", -24.0, 0.0, sub_bass_gain_db, 1.0)
+                air_gain_db = st.slider("Air Gain (dB)", -24.0, 0.0, air_gain_db, 1.0)
+                sub_bass_lfo_depth = st.slider("Sub-Bass LFO Depth", 0.0, 1.0, sub_bass_lfo_depth, 0.05)
+                air_lfo_depth = st.slider("Air LFO Depth", 0.0, 1.0, air_lfo_depth, 0.05)
+                lfo_mod_amount = st.slider("LFO Mod Amount (±%)", 0.0, 1.0, lfo_mod_amount, 0.05, 
+                                          help="Perlin noise frequency variation. 0.3 = ±30%")
+        
         # V1/V2: Optional binaural addon
+        st.sidebar.markdown("---")
         st.sidebar.markdown("**🎧 Binaural Beats (Opsiyonel)**")
         enable_binaural = st.sidebar.checkbox("Binaural Beats Ekle", value=False)
         
@@ -603,13 +665,18 @@ def main():
             st.markdown(f"**Açıklama:** {selected_preset.description}")
             st.markdown(f"**Etiketler:** {', '.join(selected_preset.tags)}")
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("Katman Sayısı", len(selected_preset.layers))
             with col2:
                 rev_mix = float(selected_preset.fx_config.reverb_mix)
                 st.metric("Reverb", f"%{int(rev_mix * 100)}")
             with col3:
+                if enable_organic:
+                    st.metric("Organic", f"✅ {organic_preset.split()[0]}")
+                else:
+                    st.metric("Organic", "❌ Kapalı")
+            with col4:
                 if enable_binaural:
                     st.metric("Binaural", "✅ Aktif")
                 else:
@@ -637,6 +704,35 @@ def main():
                     suffix="Streamlit"
                 )
                 time.sleep(0.5)
+            
+            # Organic texture control (V2.7+)
+            if enable_organic and not is_binaural_only:
+                from preset_system.preset_schema import OrganicTextureConfig
+                render_config.organic_texture_config = OrganicTextureConfig(
+                    enabled=True,
+                    sub_bass_enabled=True,
+                    sub_bass_noise_type="brown",
+                    sub_bass_lp_cutoff_hz=80.0,
+                    sub_bass_hp_cutoff_hz=20.0,
+                    sub_bass_gain_db=sub_bass_gain_db,
+                    sub_bass_lfo_rate_hz=0.008,
+                    sub_bass_lfo_type="perlin_modulated",
+                    sub_bass_lfo_depth=sub_bass_lfo_depth,
+                    sub_bass_lfo_mod_amount=lfo_mod_amount,
+                    air_enabled=True,
+                    air_noise_type="white",
+                    air_hp_cutoff_hz=4000.0,
+                    air_lp_cutoff_hz=8000.0,
+                    air_gain_db=air_gain_db,
+                    air_lfo_rate_hz=0.01,
+                    air_lfo_type="perlin_modulated",
+                    air_lfo_depth=air_lfo_depth,
+                    air_lfo_mod_amount=lfo_mod_amount
+                )
+            else:
+                # CRITICAL: Disable organic if checkbox is OFF
+                # Presets may have organic_texture_config in JSON
+                render_config.organic_texture_config = None
             
             # Binaural beats config ekle (eğer V1/V2'de aktifse)
             if enable_binaural and not is_binaural_only:
