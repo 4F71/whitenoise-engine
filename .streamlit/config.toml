@@ -1,0 +1,17 @@
+# Streamlit Configuration
+# WhiteNoise Engine - Dark Theme
+
+[theme]
+primaryColor = "#3B82F6"  # Blue - Action buttons
+backgroundColor = "#0F172A"  # Dark slate background
+secondaryBackgroundColor = "#1E293B"  # Lighter slate for containers
+textColor = "#F1F5F9"  # Light text
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
