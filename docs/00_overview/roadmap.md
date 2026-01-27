@@ -60,6 +60,22 @@ Amaç:
 Gerçek dünya broadband / steady-state seslerinden,
 telifsiz procedural preset'ler üretmek.
 
+### Research & Theory
+- [x] Feature extraction analysis (11 acoustic features)
+- [x] DSP parameter space mapping (12 parameters)
+- [x] Robust normalization (median + MAD, tanh scaling)
+- [x] Ridge regression model (R²=0.88, LOO validation)
+- [x] Mathematical lock documentation (feature → param projection)
+- [x] Sanity gate rules (gain budget, filter constraints)
+
+### Theory Documentation (Locked)
+- v2_feature_set.md (11 features: RMS, spectral, modulation)
+- v2_param_set.md (12 DSP params: noise type, filter, LFO, gain)
+- v2_mathematical_lock.md (normalization, projection formulas)
+- v2_rule_based_mapping.md (category logic: A-E)
+- v2_preset_family.md (P0-P5 profiles: mean + spread)
+- binaural_beats_theory.md (stereo carrier + beat frequency)
+
 ### Yapılacaklar
 - [x] v2 dataset hazırlanması (60 sn, mono, 48 kHz)
 - [x] feature setinin kilitlenmesi (11 audio feature)
@@ -76,15 +92,17 @@ telifsiz procedural preset'ler üretmek.
 - [x] v2 çıktılarının içerik üretiminde kullanılması
 
 ### Teslimatlar
-- 102 ML-generated preset (P0-P5)
+- 19 unique categories (distant_wind, soft_pink, etc.)
+- 102 ML-generated preset (P0-P5 profiles)
 - Ridge model (ridge_baseline.pkl)
 - 6 kilitli doküman (v2_theory/)
 - 8 sıralı script pipeline
 
 ### Kapsam Dışı
-- deep learning
-- event / transient synthesis
-- node tabanlı patch sistemi
+- Deep learning ile ses üretimi
+- Event / transient synthesis
+- Node tabanlı patch sistemi (V3'e kadar)
+
 
 ---
 
@@ -95,6 +113,12 @@ telifsiz procedural preset'ler üretmek.
 
 **Amaç:**  
 YouTube meditation/focus content için binaural beats desteği.
+
+### Research & Theory
+- [x] Binaural beats psychoacoustic theory (Oster 1973)
+- [x] Solfeggio frequency research (432-963 Hz)
+- [x] Stereo carrier + beat frequency DSP
+- [x] Theory documentation (binaural_beats_theory.md)
 
 ### Yapılacaklar
 - [x] Stereo binaural beats DSP motoru (dsp_binaural.py)
@@ -108,7 +132,7 @@ YouTube meditation/focus content için binaural beats desteği.
 
 ### Teslimatlar
 - core_dsp/dsp_binaural.py
-- 6 Solfeggio JSON preset (v2_presets/)
+- 6 Solfeggio JSON preset (v2_presets/binaural/)
 - V2.5 kategori (Theta, Alpha, Gamma, Delta, Custom)
 
 ---
@@ -121,9 +145,13 @@ YouTube meditation/focus content için binaural beats desteği.
 **Amaç:**  
 YouTube ambient için monotonluk giderme ve 10 saat dinlenebilir preset'ler.
 
-### Yapılacaklar
+### Research & Theory
 - [x] Problem tespiti (pure noise monotonluk sorunu)
 - [x] YouTube kanal analizi (breathing efekti gereksinimi)
+- [x] Ultra-slow LFO theory (0.005-0.01 Hz, 100-200s cycle)
+- [x] Multi-layer stacking theory (brown + pink + white)
+
+### Yapılacaklar
 - [x] Ultra-slow LFO implementasyonu (0.005-0.01 Hz)
 - [x] Multi-layer stacking (brown + pink + white)
 - [x] Filter breathing (LFO on cutoff)
@@ -141,48 +169,77 @@ YouTube ambient için monotonluk giderme ve 10 saat dinlenebilir preset'ler.
 - Layer yapısı: Brown (250Hz) + Pink (~2000Hz) + White (2500Hz)
 - LFO cycle: 100-200 saniye
 - Peak: 0.211-0.219 (clipping yok)
-- Breathing efekti:  Doğrulandı
+- Breathing efekti: Doğrulandı
 
 ---
 
-##  Performans Optimizasyonları (Tamamlandı)
+## V2.7 — Organic Texture Enhancement (TAMAMLANDI)
 
-**Multiprocessing Layer Rendering**
-- [x] Multiprocessing Pool implementasyonu (dsp_render.py)
-- [x] Windows spawn uyumluluğu (cloudpickle)
-- [x] Fallback mekanizması (sequential rendering)
-- [x] 120s threshold (overhead optimization)
-- [x] Test suite (5 layer × 600s → 2x speedup)
+**Durum:** Production-Ready  
+**Tamamlanma:** Ocak 2026
 
-**Scipy.signal.lfilter Optimizasyonu**
-- [x] dsp_noise.py: generate_brown_noise %76 bottleneck çözüldü
-- [x] dsp_filters.py: one_pole_lowpass/highpass optimize edildi
-- [x] Memory-efficient implementation (loop → vectorized)
+**Amaç:**  
+Sub-bass rumble + air presence ile YouTube-grade ambient texture.
 
-**Teslimatlar:**
-- 600s render: 2x hızlanma (Windows'ta spawn overhead ile)
-- Brown noise: ~%70 performans artışı
-- Filter processing: Vectorized lfilter
+### Research & Theory
+- [x] Perlin noise modulation (irregular breathing)
+- [x] Sub-bass layer theory (20-80 Hz, subtle rumble)
+- [x] Air layer theory (4-8 kHz, presence)
+- [x] Binaural carrier breathing
+- [x] Theory documentation (organic_texture_theory.md)
+
+### Yapılacaklar
+- [x] Perlin-modulated LFO (irregular breathing)
+- [x] Sub-bass layer (20-80 Hz, -12 dB)
+- [x] Air layer (4-8 kHz, -18 dB)
+- [x] Binaural carrier breathing integration
+
+### Teslimatlar
+- Enhanced organic texture DSP
+- Sub-bass + air layers
+- Perlin LFO implementation
+- Updated organic_texture_theory.md
+
+---
 
 ---
 
 ## V3 — Graph / Node Based Synthesis Engine (PLANLI)
 
-**amaç:**  
+**Durum:**  Theory Complete  
+**Başlangıç:** Ocak 2026
+
+**Amaç:**
 Pipeline mimarisinden çıkıp,
 node (dag) tabanlı bir sentez yapısına geçmek.
 
-### yapılacaklar
-- [ ] node tanımı (noise, filter, lfo, gain, pan, fx)
-- [ ] json tabanlı patch formatı
-- [ ] topological execution engine
-- [ ] adapter → node graph dönüşümü
-- [ ] bird ambience, simple tonal pad node’ları
-- [ ] preset → patch migrasyonu
+### Research & Theory
+- [x] Graph theory research (Kahn 1962, Web Audio API, VCV Rack)
+- [x] Node-based architecture analysis
+- [x] Topological sort algorithm (Kahn 1962)
+- [x] Pull vs Push execution models
+- [x] Patch format analysis (VCV Rack, Max/MSP)
 
-### kapsam dışı
-- ml tabanlı node üretimi
-- gerçek zamanlı engine
+### Theory Documentation (Locked)
+- v3_research_notes.md (Web Audio API, VCV Rack, Kahn 1962 summary)
+- v3_node_definition.md (node types, interface, ports, parameters)
+- v3_graph_theory.md (DAG, cycle detection, execution order)
+- v3_patch_format.md (JSON schema, validation, serialization)
+- v3_implementation.md (architecture plan, class hierarchy, testing)
+
+### Yapılacaklar
+- [ ] Core engine (Graph, topological executor)
+- [ ] Node tanımı (noise, filter, lfo, gain, pan, fx)
+- [ ] JSON tabanlı patch formatı
+- [ ] Topological execution engine
+- [ ] Adapter → node graph dönüşümü
+- [ ] Bird ambience, simple tonal pad node'ları
+- [ ] Preset → patch migrasyonu
+- [ ] Gradio UI integration
+
+### Kapsam Dışı
+- ML tabanlı node üretimi (V4'e kadar)
+- Gerçek zamanlı engine (V5'e kadar)
 
 ---
 
